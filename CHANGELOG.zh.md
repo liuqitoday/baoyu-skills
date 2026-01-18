@@ -5,7 +5,7 @@
 ## 0.11.0 - 2026-01-18
 
 ### 新功能
-- `baoyu-gemini-web`：新增 Disclaimer 同意检查流程——首次使用前需用户确认接受，同意状态按平台持久化存储。
+- `baoyu-danger-gemini-web`：新增 Disclaimer 同意检查流程——首次使用前需用户确认接受，同意状态按平台持久化存储。
 
 ## 0.10.0 - 2026-01-18
 
@@ -26,12 +26,12 @@
 ## 0.8.2 - 2026-01-17
 
 ### 重构
-- `baoyu-gemini-web`：重组脚本架构——将模块文件移至 `gemini-webapi/` 子目录，并更新 SKILL.md 使用 `${SKILL_DIR}` 路径引用。
+- `baoyu-danger-gemini-web`：重组脚本架构——将模块文件移至 `gemini-webapi/` 子目录，并更新 SKILL.md 使用 `${SKILL_DIR}` 路径引用。
 
 ## 0.8.1 - 2026-01-17
 
 ### 重构
-- `baoyu-gemini-web`：重构脚本架构——将 10 个分散的脚本文件整合为结构化的 `gemini-webapi/` 模块（gemini_webapi Python 库的 TypeScript 移植版）。
+- `baoyu-danger-gemini-web`：重构脚本架构——将 10 个分散的脚本文件整合为结构化的 `gemini-webapi/` 模块（gemini_webapi Python 库的 TypeScript 移植版）。
 
 ## 0.8.0 - 2026-01-17
 
@@ -61,7 +61,7 @@
 
 - `baoyu-slide-deck`：新增 `scripts/merge-to-pdf.ts`，可将生成的 slide 图片一键合并为 PDF；文档补充导出步骤与产物命名（pptx/pdf）。
 - `baoyu-comic`：新增 `scripts/merge-to-pdf.ts`，将封面/分页图片合并为 PDF；补充角色参考（图片/文本）处理说明。
-- 文档规范：在 `CLAUDE.md` 中补充“Script Directory”模板；`baoyu-gemini-web` / `baoyu-slide-deck` / `baoyu-comic` 文档统一用 `${SKILL_DIR}` 引用脚本路径，方便 agent 在任意安装目录运行。
+- 文档规范：在 `CLAUDE.md` 中补充“Script Directory”模板；`baoyu-danger-gemini-web` / `baoyu-slide-deck` / `baoyu-comic` 文档统一用 `${SKILL_DIR}` 引用脚本路径，方便 agent 在任意安装目录运行。
 
 ## 0.6.0 - 2026-01-17
 
@@ -76,8 +76,8 @@
 
 ## 0.5.2 - 2026-01-16
 
-- `baoyu-gemini-web`：新增 `--sessionId`（本地持久化会话，支持 `--list-sessions`），用于多轮对话/多图生成保持上下文一致。
-- `baoyu-gemini-web`：新增 `--reference/--ref` 传入参考图片（vision 输入），并增强超时与 cookie 失效自动恢复逻辑。
+- `baoyu-danger-gemini-web`：新增 `--sessionId`（本地持久化会话，支持 `--list-sessions`），用于多轮对话/多图生成保持上下文一致。
+- `baoyu-danger-gemini-web`：新增 `--reference/--ref` 传入参考图片（vision 输入），并增强超时与 cookie 失效自动恢复逻辑。
 - `baoyu-xhs-images` / `baoyu-slide-deck` / `baoyu-comic`：文档补充 session 约定（整套图使用同一 `sessionId`，增强风格一致性）。
 
 ## 0.5.1 - 2026-01-16
@@ -93,7 +93,7 @@
 
 ## 0.4.2 - 2026-01-15
 
-- `baoyu-gemini-web`：描述信息更新，明确其作为 `cover-image` / `xhs-images` / `article-illustrator` 等技能的图片生成后端。
+- `baoyu-danger-gemini-web`：描述信息更新，明确其作为 `cover-image` / `xhs-images` / `article-illustrator` 等技能的图片生成后端。
 
 ## 0.4.1 - 2026-01-15
 

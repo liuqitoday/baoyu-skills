@@ -61,22 +61,22 @@ You can also **Enable auto-update** to get the latest versions automatically.
 
 ## Available Skills
 
-### baoyu-gemini-web
+### baoyu-danger-gemini-web
 
 Interacts with Gemini Web to generate text and images.
 
 **Text Generation:**
 
 ```bash
-/baoyu-gemini-web "Hello, Gemini"
-/baoyu-gemini-web --prompt "Explain quantum computing"
+/baoyu-danger-gemini-web "Hello, Gemini"
+/baoyu-danger-gemini-web --prompt "Explain quantum computing"
 ```
 
 **Image Generation:**
 
 ```bash
-/baoyu-gemini-web --prompt "A cute cat" --image cat.png
-/baoyu-gemini-web --promptfiles system.md content.md --image out.png
+/baoyu-danger-gemini-web --prompt "A cute cat" --image cat.png
+/baoyu-danger-gemini-web --promptfiles system.md content.md --image out.png
 ```
 
 ### baoyu-xhs-images
@@ -280,7 +280,7 @@ The extension content will be loaded before skill execution and override default
 
 ## Disclaimer
 
-### baoyu-gemini-web
+### baoyu-danger-gemini-web
 
 This skill uses the Gemini Web API (reverse-engineered).
 

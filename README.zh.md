@@ -61,22 +61,22 @@ npx add-skill jimliu/baoyu-skills
 
 ## 可用技能
 
-### baoyu-gemini-web
+### baoyu-danger-gemini-web
 
 与 Gemini Web 交互，生成文本和图片。
 
 **文本生成：**
 
 ```bash
-/baoyu-gemini-web "你好，Gemini"
-/baoyu-gemini-web --prompt "解释量子计算"
+/baoyu-danger-gemini-web "你好，Gemini"
+/baoyu-danger-gemini-web --prompt "解释量子计算"
 ```
 
 **图片生成：**
 
 ```bash
-/baoyu-gemini-web --prompt "一只可爱的猫" --image cat.png
-/baoyu-gemini-web --promptfiles system.md content.md --image out.png
+/baoyu-danger-gemini-web --prompt "一只可爱的猫" --image cat.png
+/baoyu-danger-gemini-web --promptfiles system.md content.md --image out.png
 ```
 
 ### baoyu-xhs-images
@@ -280,7 +280,7 @@ mkdir -p .baoyu-skills/baoyu-cover-image
 
 ## 免责声明
 
-### baoyu-gemini-web
+### baoyu-danger-gemini-web
 
 此技能使用 Gemini Web API（逆向工程）。
 

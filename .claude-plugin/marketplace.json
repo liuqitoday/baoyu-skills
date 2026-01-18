@@ -15,7 +15,7 @@
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/baoyu-gemini-web",
+        "./skills/baoyu-danger-gemini-web",
         "./skills/baoyu-xhs-images",
         "./skills/baoyu-post-to-x",
         "./skills/baoyu-post-to-wechat",

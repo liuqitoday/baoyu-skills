@@ -5,7 +5,7 @@ English | [中文](./CHANGELOG.zh.md)
 ## 0.11.0 - 2026-01-18
 
 ### Features
-- `baoyu-gemini-web`: adds disclaimer consent check flow—requires user acceptance before first use, with persistent consent storage per platform.
+- `baoyu-danger-gemini-web`: adds disclaimer consent check flow—requires user acceptance before first use, with persistent consent storage per platform.
 
 ## 0.10.0 - 2026-01-18
 
@@ -26,12 +26,12 @@ English | [中文](./CHANGELOG.zh.md)
 ## 0.8.2 - 2026-01-17
 
 ### Refactor
-- `baoyu-gemini-web`: reorganizes script architecture—moves modular files into `gemini-webapi/` subdirectory and updates SKILL.md with `${SKILL_DIR}` path references.
+- `baoyu-danger-gemini-web`: reorganizes script architecture—moves modular files into `gemini-webapi/` subdirectory and updates SKILL.md with `${SKILL_DIR}` path references.
 
 ## 0.8.1 - 2026-01-17
 
 ### Refactor
-- `baoyu-gemini-web`: refactors script architecture—consolidates 10 separate files into a structured `gemini-webapi/` module (TypeScript port of gemini_webapi Python library).
+- `baoyu-danger-gemini-web`: refactors script architecture—consolidates 10 separate files into a structured `gemini-webapi/` module (TypeScript port of gemini_webapi Python library).
 
 ## 0.8.0 - 2026-01-17
 
@@ -61,7 +61,7 @@ English | [中文](./CHANGELOG.zh.md)
 
 - `baoyu-slide-deck`: adds `scripts/merge-to-pdf.ts` to export generated slides into a single PDF; docs updated with pptx/pdf outputs.
 - `baoyu-comic`: adds `scripts/merge-to-pdf.ts` to merge cover/pages into a PDF; docs clarify character reference handling (image vs text).
-- Docs conventions: adds a “Script Directory” template to `CLAUDE.md`; aligns `baoyu-gemini-web` / `baoyu-slide-deck` / `baoyu-comic` docs to use `${SKILL_DIR}` in commands so agents can run scripts from any install location.
+- Docs conventions: adds a “Script Directory” template to `CLAUDE.md`; aligns `baoyu-danger-gemini-web` / `baoyu-slide-deck` / `baoyu-comic` docs to use `${SKILL_DIR}` in commands so agents can run scripts from any install location.
 
 ## 0.6.0 - 2026-01-17
 
@@ -76,8 +76,8 @@ English | [中文](./CHANGELOG.zh.md)
 
 ## 0.5.2 - 2026-01-16
 
-- `baoyu-gemini-web`: adds `--sessionId` (local persisted sessions, plus `--list-sessions`) for multi-turn conversations and consistent multi-image generation.
-- `baoyu-gemini-web`: adds `--reference/--ref` for reference images (vision input), plus stronger timeout handling and cookie refresh recovery.
+- `baoyu-danger-gemini-web`: adds `--sessionId` (local persisted sessions, plus `--list-sessions`) for multi-turn conversations and consistent multi-image generation.
+- `baoyu-danger-gemini-web`: adds `--reference/--ref` for reference images (vision input), plus stronger timeout handling and cookie refresh recovery.
 - Docs: `baoyu-xhs-images` / `baoyu-slide-deck` / `baoyu-comic` document session usage (reuse one `sessionId` per set) to improve visual consistency.
 
 ## 0.5.1 - 2026-01-16
@@ -93,7 +93,7 @@ English | [中文](./CHANGELOG.zh.md)
 
 ## 0.4.2 - 2026-01-15
 
-- `baoyu-gemini-web`: updates description to clarify it as the image-generation backend for other skills (e.g. `cover-image`, `xhs-images`, `article-illustrator`).
+- `baoyu-danger-gemini-web`: updates description to clarify it as the image-generation backend for other skills (e.g. `cover-image`, `xhs-images`, `article-illustrator`).
 
 ## 0.4.1 - 2026-01-15
 

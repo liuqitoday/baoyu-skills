@@ -1,5 +1,5 @@
 ---
-name: baoyu-gemini-web
+name: baoyu-danger-gemini-web
 description: Image generation skill using Gemini Web. Generates images from text prompts via Google Gemini. Also supports text generation. Use as the image generation backend for other skills like cover-image, xhs-images, article-illustrator.
 ---
 
@@ -261,7 +261,7 @@ Session files are stored in `~/Library/Application Support/baoyu-skills/gemini-w
 Custom configurations via EXTEND.md.
 
 **Check paths** (priority order):
-1. `.baoyu-skills/baoyu-gemini-web/EXTEND.md` (project)
-2. `~/.baoyu-skills/baoyu-gemini-web/EXTEND.md` (user)
+1. `.baoyu-skills/baoyu-danger-gemini-web/EXTEND.md` (project)
+2. `~/.baoyu-skills/baoyu-danger-gemini-web/EXTEND.md` (user)
 
 If found, load before workflow. Extension content overrides defaults.
