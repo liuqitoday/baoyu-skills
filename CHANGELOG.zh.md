@@ -2,6 +2,14 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.8.0 - 2026-01-20
+
+### 新功能
+- `baoyu-infographic`：新增专业信息图生成技能，支持 20 种布局类型（bridge 桥接、circular-flow 循环流程、comparison-table 对比表、do-dont 正误对比、equation 公式分解、feature-list 特性列表、fishbone 鱼骨图、funnel 漏斗、grid-cards 网格卡片、iceberg 冰山、journey-path 旅程路径、layers-stack 层级堆叠、mind-map 思维导图、nested-circles 嵌套圆、priority-quadrants 优先象限、pyramid 金字塔、scale-balance 天平、timeline-horizontal 时间线、tree-hierarchy 树状层级、venn 韦恩图）和 17 种视觉风格。智能分析内容、推荐布局×风格组合，生成发布级信息图。
+
+### 修复
+- `baoyu-danger-gemini-web`：改进 cookie 验证逻辑，通过验证实际 Gemini 会话可用性而非仅检查 cookie 存在。
+
 ## 1.7.0 - 2026-01-19
 
 ### 新功能

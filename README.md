@@ -53,7 +53,7 @@ Simply tell Claude Code:
 
 | Plugin | Description | Skills |
 |--------|-------------|--------|
-| **content-skills** | Content generation and publishing | [xhs-images](#baoyu-xhs-images), [cover-image](#baoyu-cover-image), [slide-deck](#baoyu-slide-deck), [comic](#baoyu-comic), [article-illustrator](#baoyu-article-illustrator), [post-to-x](#baoyu-post-to-x), [post-to-wechat](#baoyu-post-to-wechat) |
+| **content-skills** | Content generation and publishing | [xhs-images](#baoyu-xhs-images), [infographic](#baoyu-infographic), [cover-image](#baoyu-cover-image), [slide-deck](#baoyu-slide-deck), [comic](#baoyu-comic), [article-illustrator](#baoyu-article-illustrator), [post-to-x](#baoyu-post-to-x), [post-to-wechat](#baoyu-post-to-wechat) |
 | **ai-generation-skills** | AI-powered generation backends | [danger-gemini-web](#baoyu-danger-gemini-web) |
 | **utility-skills** | Utility tools for content processing | [danger-x-to-markdown](#baoyu-danger-x-to-markdown), [compress-image](#baoyu-compress-image) |
 
@@ -110,6 +110,118 @@ Xiaohongshu (RedNote) infographic series generator. Breaks down content into 1-1
 | `list` | 4-7 items | Checklists, rankings |
 | `comparison` | 2 sides | Before/after, pros/cons |
 | `flow` | 3-6 steps | Processes, timelines |
+
+#### baoyu-infographic
+
+Generate professional infographics with 20 layout types and 17 visual styles. Analyzes content, recommends layout×style combinations, and generates publication-ready infographics.
+
+```bash
+# Auto-recommend combinations based on content
+/baoyu-infographic path/to/content.md
+
+# Specify layout
+/baoyu-infographic path/to/content.md --layout pyramid
+
+# Specify style (default: craft-handmade)
+/baoyu-infographic path/to/content.md --style technical-schematic
+
+# Specify both
+/baoyu-infographic path/to/content.md --layout funnel --style corporate-memphis
+
+# With aspect ratio
+/baoyu-infographic path/to/content.md --aspect portrait
+```
+
+**Options**:
+| Option | Description |
+|--------|-------------|
+| `--layout <name>` | Information layout (20 options) |
+| `--style <name>` | Visual style (17 options, default: craft-handmade) |
+| `--aspect <ratio>` | landscape (16:9), portrait (9:16), square (1:1) |
+| `--lang <code>` | Output language (en, zh, ja, etc.) |
+
+**Layouts** (information structure):
+
+| Layout | Best For |
+|--------|----------|
+| `bridge` | Problem-solution, gap-crossing |
+| `circular-flow` | Cycles, recurring processes |
+| `comparison-table` | Multi-factor comparisons |
+| `do-dont` | Correct vs incorrect practices |
+| `equation` | Formula breakdown, input-output |
+| `feature-list` | Product features, bullet points |
+| `fishbone` | Root cause analysis |
+| `funnel` | Conversion processes, filtering |
+| `grid-cards` | Multiple topics, overview |
+| `iceberg` | Surface vs hidden aspects |
+| `journey-path` | Customer journey, milestones |
+| `layers-stack` | Technology stack, layers |
+| `mind-map` | Brainstorming, idea mapping |
+| `nested-circles` | Levels of influence, scope |
+| `priority-quadrants` | Eisenhower matrix, 2x2 |
+| `pyramid` | Hierarchy, Maslow's needs |
+| `scale-balance` | Pros vs cons, weighing |
+| `timeline-horizontal` | History, chronological events |
+| `tree-hierarchy` | Org charts, taxonomy |
+| `venn` | Overlapping concepts |
+
+**Layout Previews**:
+
+| | | |
+|:---:|:---:|:---:|
+| ![bridge](./screenshots/infographic-layouts/bridge.webp) | ![circular-flow](./screenshots/infographic-layouts/circular-flow.webp) | ![comparison-table](./screenshots/infographic-layouts/comparison-table.webp) |
+| bridge | circular-flow | comparison-table |
+| ![do-dont](./screenshots/infographic-layouts/do-dont.webp) | ![equation](./screenshots/infographic-layouts/equation.webp) | ![feature-list](./screenshots/infographic-layouts/feature-list.webp) |
+| do-dont | equation | feature-list |
+| ![fishbone](./screenshots/infographic-layouts/fishbone.webp) | ![funnel](./screenshots/infographic-layouts/funnel.webp) | ![grid-cards](./screenshots/infographic-layouts/grid-cards.webp) |
+| fishbone | funnel | grid-cards |
+| ![iceberg](./screenshots/infographic-layouts/iceberg.webp) | ![journey-path](./screenshots/infographic-layouts/journey-path.webp) | ![layers-stack](./screenshots/infographic-layouts/layers-stack.webp) |
+| iceberg | journey-path | layers-stack |
+| ![mind-map](./screenshots/infographic-layouts/mind-map.webp) | ![nested-circles](./screenshots/infographic-layouts/nested-circles.webp) | ![priority-quadrants](./screenshots/infographic-layouts/priority-quadrants.webp) |
+| mind-map | nested-circles | priority-quadrants |
+| ![pyramid](./screenshots/infographic-layouts/pyramid.webp) | ![scale-balance](./screenshots/infographic-layouts/scale-balance.webp) | ![timeline-horizontal](./screenshots/infographic-layouts/timeline-horizontal.webp) |
+| pyramid | scale-balance | timeline-horizontal |
+| ![tree-hierarchy](./screenshots/infographic-layouts/tree-hierarchy.webp) | ![venn](./screenshots/infographic-layouts/venn.webp) | |
+| tree-hierarchy | venn | |
+
+**Styles** (visual aesthetics):
+
+| Style | Description |
+|-------|-------------|
+| `craft-handmade` (Default) | Hand-drawn illustration, paper craft aesthetic |
+| `claymation` | 3D clay figures, playful stop-motion |
+| `kawaii` | Japanese cute, big eyes, pastel colors |
+| `storybook-watercolor` | Soft painted illustrations, whimsical |
+| `chalkboard` | Colorful chalk on black board |
+| `cyberpunk-neon` | Neon glow on dark, futuristic |
+| `bold-graphic` | Comic style, halftone dots, high contrast |
+| `aged-academia` | Vintage science, sepia sketches |
+| `corporate-memphis` | Flat vector people, vibrant fills |
+| `technical-schematic` | Blueprint, isometric 3D, engineering |
+| `origami` | Folded paper forms, geometric |
+| `pixel-art` | Retro 8-bit, nostalgic gaming |
+| `ui-wireframe` | Grayscale boxes, interface mockup |
+| `subway-map` | Transit diagram, colored lines |
+| `ikea-manual` | Minimal line art, assembly style |
+| `knolling` | Organized flat-lay, top-down |
+| `lego-brick` | Toy brick construction, playful |
+
+**Style Previews**:
+
+| | | |
+|:---:|:---:|:---:|
+| ![craft-handmade](./screenshots/infographic-styles/craft-handmade.webp) | ![claymation](./screenshots/infographic-styles/claymation.webp) | ![kawaii](./screenshots/infographic-styles/kawaii.webp) |
+| craft-handmade | claymation | kawaii |
+| ![storybook-watercolor](./screenshots/infographic-styles/storybook-watercolor.webp) | ![chalkboard](./screenshots/infographic-styles/chalkboard.webp) | ![cyberpunk-neon](./screenshots/infographic-styles/cyberpunk-neon.webp) |
+| storybook-watercolor | chalkboard | cyberpunk-neon |
+| ![bold-graphic](./screenshots/infographic-styles/bold-graphic.webp) | ![aged-academia](./screenshots/infographic-styles/aged-academia.webp) | ![corporate-memphis](./screenshots/infographic-styles/corporate-memphis.webp) |
+| bold-graphic | aged-academia | corporate-memphis |
+| ![technical-schematic](./screenshots/infographic-styles/technical-schematic.webp) | ![origami](./screenshots/infographic-styles/origami.webp) | ![pixel-art](./screenshots/infographic-styles/pixel-art.webp) |
+| technical-schematic | origami | pixel-art |
+| ![ui-wireframe](./screenshots/infographic-styles/ui-wireframe.webp) | ![subway-map](./screenshots/infographic-styles/subway-map.webp) | ![ikea-manual](./screenshots/infographic-styles/ikea-manual.webp) |
+| ui-wireframe | subway-map | ikea-manual |
+| ![knolling](./screenshots/infographic-styles/knolling.webp) | ![lego-brick](./screenshots/infographic-styles/lego-brick.webp) | |
+| knolling | lego-brick | |
 
 #### baoyu-cover-image
 

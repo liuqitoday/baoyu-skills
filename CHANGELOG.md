@@ -2,6 +2,14 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.8.0 - 2026-01-20
+
+### Features
+- `baoyu-infographic`: new skill for professional infographic generation with 20 layout types (bridge, circular-flow, comparison-table, do-dont, equation, feature-list, fishbone, funnel, grid-cards, iceberg, journey-path, layers-stack, mind-map, nested-circles, priority-quadrants, pyramid, scale-balance, timeline-horizontal, tree-hierarchy, venn) and 17 visual styles. Analyzes content, recommends layout×style combinations, and generates publication-ready infographics.
+
+### Fixes
+- `baoyu-danger-gemini-web`: improves cookie validation by verifying actual Gemini session readiness instead of just checking cookie presence.
+
 ## 1.7.0 - 2026-01-19
 
 ### Features

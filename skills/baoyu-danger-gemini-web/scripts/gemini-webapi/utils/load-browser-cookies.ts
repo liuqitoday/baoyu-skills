@@ -4,8 +4,9 @@ import { mkdir } from 'node:fs/promises';
 import net from 'node:net';
 import process from 'node:process';
 
+import { Endpoint, Headers } from '../constants.js';
 import { logger } from './logger.js';
-import { fetch_with_timeout, sleep } from './http.js';
+import { cookie_header, fetch_with_timeout, sleep } from './http.js';
 import { read_cookie_file, type CookieMap, write_cookie_file } from './cookie-file.js';
 import { resolveGeminiWebChromeProfileDir, resolveGeminiWebCookiePath } from './paths.js';
 
@@ -177,6 +178,30 @@ async function launch_chrome(profileDir: string, port: number): Promise<ChildPro
   return spawn(chrome, args, { stdio: 'ignore' });
 }
 
+async function is_gemini_session_ready(cookies: CookieMap, verbose: boolean): Promise<boolean> {
+  if (!cookies['__Secure-1PSID']) return false;
+
+  try {
+    const res = await fetch_with_timeout(Endpoint.INIT, {
+      method: 'GET',
+      headers: { ...Headers.GEMINI, Cookie: cookie_header(cookies) },
+      redirect: 'follow',
+      timeout_ms: 30_000,
+    });
+
+    if (!res.ok) {
+      if (verbose) logger.debug(`Gemini init check failed: ${res.status} ${res.statusText}`);
+      return false;
+    }
+
+    const text = await res.text();
+    return /\"SNlM0e\":\"(.*?)\"/.test(text);
+  } catch (e) {
+    if (verbose) logger.debug(`Gemini init check error: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
+}
+
 async function fetch_google_cookies_via_cdp(
   profileDir: string,
   timeoutMs: number,
@@ -200,7 +225,7 @@ async function fetch_google_cookies_via_cdp(
     await cdp.send('Network.enable', {}, { sessionId });
 
     if (verbose) {
-      logger.info('Chrome opened. If needed, complete Google login in the window. Waiting for cookies...');
+      logger.info('Chrome opened. If needed, complete Google login in the window. Waiting for a valid Gemini session...');
     }
 
     const start = Date.now();
@@ -219,14 +244,14 @@ async function fetch_google_cookies_via_cdp(
       }
 
       last = m;
-      if (m['__Secure-1PSID'] && (m['__Secure-1PSIDTS'] || Date.now() - start > 10_000)) {
+      if (await is_gemini_session_ready(m, verbose)) {
         return m;
       }
 
       await sleep(1000);
     }
 
-    throw new Error(`Timed out waiting for Google cookies. Last keys: ${Object.keys(last).join(', ')}`);
+    throw new Error(`Timed out waiting for a valid Gemini session. Last keys: ${Object.keys(last).join(', ')}`);
   } finally {
     if (cdp) {
       try {

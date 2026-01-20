@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Skills shared by Baoyu for improving daily work efficiency",
-    "version": "1.7.0"
+    "version": "1.8.0"
   },
   "plugins": [
     {
@@ -21,7 +21,8 @@
         "./skills/baoyu-article-illustrator",
         "./skills/baoyu-cover-image",
         "./skills/baoyu-slide-deck",
-        "./skills/baoyu-comic"
+        "./skills/baoyu-comic",
+        "./skills/baoyu-infographic"
       ]
     },
     {
