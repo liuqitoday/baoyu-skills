@@ -156,7 +156,7 @@ export async function convertMarkdown(markdownPath: string, options?: { title?: 
   let imageCounter = 0;
 
   const modifiedBody = body.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
-    const placeholder = `[[IMAGE_PLACEHOLDER_${++imageCounter}]]`;
+    const placeholder = `WECHATIMGPH_${++imageCounter}`;
     images.push({ src, placeholder });
     return placeholder;
   });
@@ -224,7 +224,7 @@ Output JSON format:
   "htmlPath": "/tmp/wechat-article-images/temp-article.html",
   "contentImages": [
     {
-      "placeholder": "[[IMAGE_PLACEHOLDER_1]]",
+      "placeholder": "WECHATIMGPH_1",
       "localPath": "/tmp/wechat-image/img.png",
       "originalPath": "imgs/image.png"
     }

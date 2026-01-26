@@ -80,6 +80,30 @@ async function pasteInEditor(session: ChromeSession): Promise<void> {
   await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'v', code: 'KeyV', modifiers, windowsVirtualKeyCode: 86 }, { sessionId: session.sessionId });
 }
 
+async function sendCopy(cdp?: CdpConnection, sessionId?: string): Promise<void> {
+  if (process.platform === 'darwin') {
+    spawnSync('osascript', ['-e', 'tell application "System Events" to keystroke "c" using command down']);
+  } else if (process.platform === 'linux') {
+    spawnSync('xdotool', ['key', 'ctrl+c']);
+  } else if (cdp && sessionId) {
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'c', code: 'KeyC', modifiers: 2, windowsVirtualKeyCode: 67 }, { sessionId });
+    await sleep(50);
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'c', code: 'KeyC', modifiers: 2, windowsVirtualKeyCode: 67 }, { sessionId });
+  }
+}
+
+async function sendPaste(cdp?: CdpConnection, sessionId?: string): Promise<void> {
+  if (process.platform === 'darwin') {
+    spawnSync('osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down']);
+  } else if (process.platform === 'linux') {
+    spawnSync('xdotool', ['key', 'ctrl+v']);
+  } else if (cdp && sessionId) {
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'v', code: 'KeyV', modifiers: 2, windowsVirtualKeyCode: 86 }, { sessionId });
+    await sleep(50);
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'v', code: 'KeyV', modifiers: 2, windowsVirtualKeyCode: 86 }, { sessionId });
+  }
+}
+
 async function copyHtmlFromBrowser(cdp: CdpConnection, htmlFilePath: string): Promise<void> {
   const absolutePath = path.isAbsolute(htmlFilePath) ? htmlFilePath : path.resolve(process.cwd(), htmlFilePath);
   const fileUrl = `file://${absolutePath}`;
@@ -110,23 +134,8 @@ async function copyHtmlFromBrowser(cdp: CdpConnection, htmlFilePath: string): Pr
   }, { sessionId });
   await sleep(300);
 
-  console.log('[wechat] Copying with CDP keyboard event...');
-  const modifiers = process.platform === 'darwin' ? 4 : 2;
-  await cdp.send('Input.dispatchKeyEvent', {
-    type: 'keyDown',
-    key: 'c',
-    code: 'KeyC',
-    modifiers,
-    windowsVirtualKeyCode: 67
-  }, { sessionId });
-  await sleep(50);
-  await cdp.send('Input.dispatchKeyEvent', {
-    type: 'keyUp',
-    key: 'c',
-    code: 'KeyC',
-    modifiers,
-    windowsVirtualKeyCode: 67
-  }, { sessionId });
+  console.log('[wechat] Copying content...');
+  await sendCopy(cdp, sessionId);
   await sleep(1000);
 
   console.log('[wechat] Closing HTML tab...');
@@ -134,23 +143,8 @@ async function copyHtmlFromBrowser(cdp: CdpConnection, htmlFilePath: string): Pr
 }
 
 async function pasteFromClipboardInEditor(session: ChromeSession): Promise<void> {
-  console.log('[wechat] Pasting with CDP keyboard event...');
-  const modifiers = process.platform === 'darwin' ? 4 : 2;
-  await session.cdp.send('Input.dispatchKeyEvent', {
-    type: 'keyDown',
-    key: 'v',
-    code: 'KeyV',
-    modifiers,
-    windowsVirtualKeyCode: 86
-  }, { sessionId: session.sessionId });
-  await sleep(50);
-  await session.cdp.send('Input.dispatchKeyEvent', {
-    type: 'keyUp',
-    key: 'v',
-    code: 'KeyV',
-    modifiers,
-    windowsVirtualKeyCode: 86
-  }, { sessionId: session.sessionId });
+  console.log('[wechat] Pasting content...');
+  await sendPaste(session.cdp, session.sessionId);
   await sleep(1000);
 }
 

@@ -53,7 +53,7 @@ Regular paragraph with **bold** and *italic*.
 
 ## Image Handling
 
-1. **Parse**: Images in markdown are replaced with `[[IMAGE_PLACEHOLDER_N]]`
+1. **Parse**: Images in markdown are replaced with `WECHATIMGPH_N`
 2. **Render**: HTML is generated with placeholders in text
 3. **Paste**: HTML content is pasted into WeChat editor
 4. **Replace**: For each placeholder:
@@ -81,7 +81,7 @@ Claude:
 3. Opens Chrome, navigates to WeChat editor
 4. Pastes HTML content
 5. For each image:
-   - Selects [[IMAGE_PLACEHOLDER_1]]
+   - Selects WECHATIMGPH_1
    - Scrolls into view
    - Presses Backspace to delete
    - Pastes image

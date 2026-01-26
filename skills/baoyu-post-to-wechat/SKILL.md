@@ -56,8 +56,25 @@ npx -y bun ${SKILL_DIR}/scripts/wechat-browser.ts --title "标题" --content "�
 
 ### Article (文章)
 
+Before posting, ask user to choose a theme using AskUserQuestion:
+
+| Theme | Description |
+|-------|-------------|
+| `default` | 经典主题 - 传统排版，标题居中带底边，二级标题白字彩底 |
+| `grace` | 优雅主题 - 文字阴影，圆角卡片，精致引用块 (by @brzhang) |
+| `simple` | 简洁主题 - 现代极简风，不对称圆角，清爽留白 (by @okooo5km) |
+
+Default: `default`. If user has already specified a theme, skip the question.
+
+**Workflow**:
+
+1. Generate HTML preview and print the full `htmlPath` from JSON output so user can click to preview:
 ```bash
-npx -y bun ${SKILL_DIR}/scripts/wechat-article.ts --markdown article.md --theme grace
+npx -y bun ${SKILL_DIR}/scripts/md-to-wechat.ts article.md --theme <chosen-theme>
+```
+2. Post to WeChat:
+```bash
+npx -y bun ${SKILL_DIR}/scripts/wechat-article.ts --markdown article.md --theme <chosen-theme>
 ```
 
 ## Detailed References
