@@ -229,11 +229,51 @@ export async function publishArticle(options: ArticleOptions): Promise<void> {
         console.log('[x-article] Waiting for Apply button...');
         const applyFound = await waitForElement('[data-testid="applyButton"]', 15_000);
         if (applyFound) {
-          await cdp.send('Runtime.evaluate', {
-            expression: `document.querySelector('[data-testid="applyButton"]')?.click()`,
-          }, { sessionId });
-          console.log('[x-article] Cover image applied');
-          await sleep(1000);
+          // Check if modal is present
+          const isModalOpen = async (): Promise<boolean> => {
+            const result = await cdp!.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+              expression: `!!document.querySelector('[role="dialog"][aria-modal="true"]')`,
+              returnByValue: true,
+            }, { sessionId });
+            return result.result.value;
+          };
+
+          // Click Apply button with retry logic
+          const maxRetries = 3;
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            console.log(`[x-article] Clicking Apply button (attempt ${attempt}/${maxRetries})...`);
+
+            await cdp.send('Runtime.evaluate', {
+              expression: `document.querySelector('[data-testid="applyButton"]')?.click()`,
+            }, { sessionId });
+
+            // Wait for modal to close (up to 5 seconds per attempt)
+            const closeTimeout = 5000;
+            const checkInterval = 300;
+            const startTime = Date.now();
+            let modalClosed = false;
+
+            while (Date.now() - startTime < closeTimeout) {
+              await sleep(checkInterval);
+              const stillOpen = await isModalOpen();
+              if (!stillOpen) {
+                modalClosed = true;
+                break;
+              }
+            }
+
+            if (modalClosed) {
+              console.log('[x-article] Cover image applied, modal closed');
+              await sleep(500);
+              break;
+            }
+
+            if (attempt < maxRetries) {
+              console.log('[x-article] Modal still open, retrying...');
+            } else {
+              console.log('[x-article] Modal did not close after all attempts, continuing anyway...');
+            }
+          }
         } else {
           console.log('[x-article] Apply button not found, continuing...');
         }
