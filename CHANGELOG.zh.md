@@ -2,6 +2,11 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.24.3 - 2026-01-28
+
+### 文档
+- 在修改工作流中强调先更新提示词文件再生成图片（article-illustrator、slide-deck、xhs-images、cover-image、comic）。
+
 ## 1.24.2 - 2026-01-28
 
 ### 重构

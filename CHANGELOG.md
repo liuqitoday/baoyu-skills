@@ -2,6 +2,11 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.24.3 - 2026-01-28
+
+### Documentation
+- Emphasize updating prompt files before regenerating images in modification workflows (article-illustrator, slide-deck, xhs-images, cover-image, comic).
+
 ## 1.24.2 - 2026-01-28
 
 ### Refactor
