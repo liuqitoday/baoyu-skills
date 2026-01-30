@@ -209,6 +209,7 @@ Schema: [references/config/preferences-schema.md](references/config/preferences-
 ### Step 1: Analyze Content
 
 1. **Save source content** (if pasted, save to `source.md` in target directory; if file path, use as-is)
+   - **Backup rule**: If `source.md` exists, rename to `source-backup-YYYYMMDD-HHMMSS.md`
 2. **Content analysis**: Extract topic, core message, tone, keywords; identify visual metaphors; detect content type
 3. **Language detection**: Detect source language, note user's input language, compare with EXTEND.md preference
 4. **Determine output directory** per File Structure rules. If no `default_output_dir` preference + file path input, include in Step 2 Q4
@@ -225,6 +226,8 @@ Validate all 5 dimensions + aspect ratio. Full confirmation flow: [references/wo
 | All 5 + `--aspect` specified | All | None |
 
 ### Step 3: Create Prompt
+
+**Backup rule**: If `prompts/cover.md` exists, rename to `prompts/cover-backup-YYYYMMDD-HHMMSS.md`
 
 Save to `prompts/cover.md`. Full template: [references/workflow/prompt-template.md](references/workflow/prompt-template.md)
 
