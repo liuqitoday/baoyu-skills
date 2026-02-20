@@ -570,10 +570,7 @@ export async function postToWeChat(options: WeChatBrowserOptions): Promise<void>
     for (let i = 0; i < 30; i++) {
       await sleep(2000);
       const uploadCheck = await cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
-        expression: `
-          const thumbs = document.querySelectorAll('.weui-desktop-upload__thumb, .pic_item, [class*=upload_thumb]');
-          JSON.stringify({ uploaded: thumbs.length });
-        `,
+        expression: `JSON.stringify({ uploaded: document.querySelectorAll('.weui-desktop-upload__thumb, .pic_item, [class*=upload_thumb]').length })`,
         returnByValue: true,
       }, { sessionId });
       const status = JSON.parse(uploadCheck.result.value);
