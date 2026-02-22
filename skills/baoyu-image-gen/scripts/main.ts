@@ -108,7 +108,7 @@ function parseArgs(argv: string[]): CliArgs {
 
     if (a === "--provider") {
       const v = argv[++i];
-      if (v !== "google" && v !== "openai" && v !== "dashscope") throw new Error(`Invalid provider: ${v}`);
+      if (v !== "google" && v !== "openai" && v !== "dashscope" && v !== "liuqi_custom") throw new Error(`Invalid provider: ${v}`);
       out.provider = v;
       continue;
     }
@@ -334,6 +334,7 @@ function detectProvider(args: CliArgs): Provider {
   const hasGoogle = !!(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
   const hasOpenai = !!process.env.OPENAI_API_KEY;
   const hasDashscope = !!process.env.DASHSCOPE_API_KEY;
+  const hasLiuqiCustom = !!process.env.LIUQI_CUSTOM_API_KEY;
 
   if (args.referenceImages.length > 0) {
     if (hasGoogle) return "google";
@@ -343,7 +344,7 @@ function detectProvider(args: CliArgs): Provider {
     );
   }
 
-  const available = [hasGoogle && "google", hasOpenai && "openai", hasDashscope && "dashscope"].filter(Boolean) as Provider[];
+  const available = [hasLiuqiCustom && "liuqi_custom", hasGoogle && "google", hasOpenai && "openai", hasDashscope && "dashscope"].filter(Boolean) as Provider[];
 
   if (available.length === 1) return available[0]!;
   if (available.length > 1) return available[0]!;
@@ -388,6 +389,9 @@ async function loadProviderModule(provider: Provider): Promise<ProviderModule> {
   }
   if (provider === "dashscope") {
     return (await import("./providers/dashscope")) as ProviderModule;
+  }
+  if (provider === "liuqi_custom") {
+    return (await import("./providers/liuqi-custom")) as ProviderModule;
   }
   return (await import("./providers/openai")) as ProviderModule;
 }
@@ -436,6 +440,7 @@ async function main(): Promise<void> {
     if (provider === "google") model = extendConfig.default_model.google ?? null;
     if (provider === "openai") model = extendConfig.default_model.openai ?? null;
     if (provider === "dashscope") model = extendConfig.default_model.dashscope ?? null;
+    if (provider === "liuqi_custom") model = extendConfig.default_model.liuqi_custom ?? null;
   }
   model = model || providerModule.getDefaultModel();
 
