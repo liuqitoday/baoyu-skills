@@ -115,6 +115,30 @@ npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provi
 
 **Load Priority**: CLI args > EXTEND.md > env vars > `<cwd>/.baoyu-skills/.env` > `~/.baoyu-skills/.env`
 
+## Replicate Model Configuration
+
+When using `--provider replicate`, the model can be configured in the following ways (highest priority first):
+
+1. CLI flag: `--model <owner/name>`
+2. EXTEND.md: `default_model.replicate`
+3. Env var: `REPLICATE_IMAGE_MODEL`
+4. Built-in default: `google/nano-banana-pro`
+
+Supported model formats:
+
+- `owner/name` (recommended for official models), e.g. `google/nano-banana-pro`
+- `owner/name:version` (community models by version), e.g. `stability-ai/sdxl:<version>`
+
+Examples:
+
+```bash
+# Use Replicate default model
+npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provider replicate
+
+# Override model explicitly
+npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provider replicate --model google/nano-banana
+```
+
 ## Provider Selection
 
 1. `--ref` provided + no `--provider` → auto-select Google first, then OpenAI, then Replicate
