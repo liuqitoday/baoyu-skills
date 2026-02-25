@@ -1,11 +1,11 @@
 ---
 name: baoyu-image-gen
-description: AI image generation with OpenAI, Google and DashScope APIs. Supports text-to-image, reference images, aspect ratios. Sequential by default; parallel generation available on request. Use when user asks to generate, create, or draw images.
+description: AI image generation with OpenAI, Google, DashScope and Replicate APIs. Supports text-to-image, reference images, aspect ratios. Sequential by default; parallel generation available on request. Use when user asks to generate, create, or draw images.
 ---
 
 # Image Generation (AI SDK)
 
-Official API-based image generation. Supports OpenAI, Google and DashScope (阿里通义万象) providers.
+Official API-based image generation. Supports OpenAI, Google, DashScope (阿里通义万象) and Replicate providers.
 
 ## Script Directory
 
@@ -71,6 +71,12 @@ npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provi
 
 # DashScope (阿里通义万象)
 npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "一只可爱的猫" --image out.png --provider dashscope
+
+# Replicate (google/nano-banana-pro)
+npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provider replicate
+
+# Replicate with specific model
+npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provider replicate --model google/nano-banana
 ```
 
 ## Options
@@ -80,7 +86,7 @@ npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "一只可爱的猫" --image ou
 | `--prompt <text>`, `-p` | Prompt text |
 | `--promptfiles <files...>` | Read prompt from files (concatenated) |
 | `--image <path>` | Output image path (required) |
-| `--provider google\|openai\|dashscope` | Force provider (default: google) |
+| `--provider google\|openai\|dashscope\|replicate` | Force provider (default: google) |
 | `--model <id>`, `-m` | Model ID (`--ref` with OpenAI requires GPT Image model, e.g. `gpt-image-1.5`) |
 | `--ar <ratio>` | Aspect ratio (e.g., `16:9`, `1:1`, `4:3`) |
 | `--size <WxH>` | Size (e.g., `1024x1024`) |
@@ -97,19 +103,46 @@ npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "一只可爱的猫" --image ou
 | `OPENAI_API_KEY` | OpenAI API key |
 | `GOOGLE_API_KEY` | Google API key |
 | `DASHSCOPE_API_KEY` | DashScope API key (阿里云) |
+| `REPLICATE_API_TOKEN` | Replicate API token |
 | `OPENAI_IMAGE_MODEL` | OpenAI model override |
 | `GOOGLE_IMAGE_MODEL` | Google model override |
 | `DASHSCOPE_IMAGE_MODEL` | DashScope model override (default: z-image-turbo) |
+| `REPLICATE_IMAGE_MODEL` | Replicate model override (default: google/nano-banana-pro) |
 | `OPENAI_BASE_URL` | Custom OpenAI endpoint |
 | `GOOGLE_BASE_URL` | Custom Google endpoint |
 | `DASHSCOPE_BASE_URL` | Custom DashScope endpoint |
+| `REPLICATE_BASE_URL` | Custom Replicate endpoint |
 
 **Load Priority**: CLI args > EXTEND.md > env vars > `<cwd>/.baoyu-skills/.env` > `~/.baoyu-skills/.env`
 
+## Replicate Model Configuration
+
+When using `--provider replicate`, the model can be configured in the following ways (highest priority first):
+
+1. CLI flag: `--model <owner/name>`
+2. EXTEND.md: `default_model.replicate`
+3. Env var: `REPLICATE_IMAGE_MODEL`
+4. Built-in default: `google/nano-banana-pro`
+
+Supported model formats:
+
+- `owner/name` (recommended for official models), e.g. `google/nano-banana-pro`
+- `owner/name:version` (community models by version), e.g. `stability-ai/sdxl:<version>`
+
+Examples:
+
+```bash
+# Use Replicate default model
+npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provider replicate
+
+# Override model explicitly
+npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image out.png --provider replicate --model google/nano-banana
+```
+
 ## Provider Selection
 
-1. `--ref` provided + no `--provider` → auto-select Google first, then OpenAI
-2. `--provider` specified → use it (if `--ref`, must be `google` or `openai`)
+1. `--ref` provided + no `--provider` → auto-select Google first, then OpenAI, then Replicate
+2. `--provider` specified → use it (if `--ref`, must be `google`, `openai`, or `replicate`)
 3. Only one API key available → use that provider
 4. Multiple available → default to Google
 
