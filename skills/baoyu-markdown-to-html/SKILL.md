@@ -92,6 +92,8 @@ test -f "$HOME/.baoyu-skills/baoyu-post-to-wechat/EXTEND.md" && grep -o 'default
 | `default` (Recommended) | 经典主题 - 传统排版，标题居中带底边，二级标题白字彩底 |
 | `grace` | 优雅主题 - 文字阴影，圆角卡片，精致引用块 |
 | `simple` | 简洁主题 - 现代极简风，不对称圆角，清爽留白 |
+| `red` | 红色主题 - 红金配色，宋体排版，传统书法风格 |
+| `orange` | 橙色主题 - 暖色调现代风，宽松行距，圆角装饰 |
 
 ### Step 2: Convert
 
@@ -113,7 +115,7 @@ npx -y bun ${SKILL_DIR}/scripts/main.ts <markdown_file> [options]
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--theme <name>` | Theme name (default, grace, simple) | default |
+| `--theme <name>` | Theme name (default, grace, simple, red, orange) | default |
 | `--title <title>` | Override title from frontmatter | |
 | `--keep-title` | Keep the first heading in content | false (removed) |
 | `--help` | Show help | |
@@ -169,6 +171,8 @@ npx -y bun ${SKILL_DIR}/scripts/main.ts article.md --title "My Article"
 | `default` | 经典主题 - 传统排版，标题居中带底边，二级标题白字彩底 |
 | `grace` | 优雅主题 - 文字阴影，圆角卡片，精致引用块 (by @brzhang) |
 | `simple` | 简洁主题 - 现代极简风，不对称圆角，清爽留白 (by @okooo5km) |
+| `red` | 红色主题 - 红金配色，宋体排版，传统书法风格 |
+| `orange` | 橙色主题 - 暖色调现代风，宽松行距，圆角装饰 |
 
 ## Supported Markdown Features
 
