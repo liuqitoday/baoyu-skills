@@ -2,6 +2,12 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.42.0 - 2026-02-28
+
+### 新功能
+- `baoyu-markdown-to-html`：合并 heritage 和 warm 为 modern 主题，新增主题默认颜色（default→蓝、grace→紫、simple→绿、modern→橙）
+- `baoyu-post-to-wechat`：EXTEND.md 新增默认颜色配置，首次设置增加 modern 主题和颜色选择
+
 ## 1.41.0 - 2026-02-28
 
 ### 新功能

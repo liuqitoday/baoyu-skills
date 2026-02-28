@@ -2,6 +2,12 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.42.0 - 2026-02-28
+
+### Features
+- `baoyu-markdown-to-html`: consolidate heritage and warm into single modern theme, add per-theme color defaults (default→blue, grace→purple, simple→green, modern→orange)
+- `baoyu-post-to-wechat`: add default color preference support in EXTEND.md, add modern theme option to first-time setup
+
 ## 1.41.0 - 2026-02-28
 
 ### Features
