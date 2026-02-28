@@ -7,6 +7,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fetchXArticle } from "./graphql.js";
 import { formatArticleMarkdown } from "./markdown.js";
 import { localizeMarkdownMedia, type LocalizeMarkdownMediaResult } from "./media-localizer.js";
+import { resolveReferencedTweetsFromArticle } from "./referenced-tweets.js";
 import { hasRequiredXCookies, loadXCookies, refreshXCookies } from "./cookies.js";
 import { resolveXToMarkdownConsentPath } from "./paths.js";
 import { tweetToMarkdown } from "./tweet-to-markdown.js";
@@ -203,6 +204,134 @@ function extractContentSlug(markdown: string): string {
   return "untitled";
 }
 
+function resolveSlugAndId(normalizedUrl: string, kind: "tweet" | "article"): { slug: string; idPart: string } {
+  const articleId = kind === "article" ? parseArticleId(normalizedUrl) : null;
+  const tweetId = kind === "tweet" ? parseTweetId(normalizedUrl) : null;
+  const username = kind === "tweet" ? parseTweetUsername(normalizedUrl) : null;
+
+  const idPart = articleId ?? tweetId ?? String(Date.now());
+  const userSlug = username ? sanitizeSlug(username) : null;
+  const slug = userSlug ?? idPart;
+  return { slug, idPart };
+}
+
+function extractFrontmatterUrls(markdown: string): string[] {
+  const match = markdown.match(/^---\n([\s\S]*?)\n---/);
+  if (!match?.[1]) return [];
+
+  const lines = match[1].split("\n");
+  const urls: string[] = [];
+  for (const line of lines) {
+    const m = line.match(/^(url|requestedUrl):\s*["']([^"']+)["']\s*$/);
+    if (m?.[2]) {
+      urls.push(m[2]);
+    }
+  }
+  return urls;
+}
+
+function frontmatterMatchesTarget(
+  markdown: string,
+  normalizedUrl: string,
+  kind: "tweet" | "article"
+): boolean {
+  const urls = extractFrontmatterUrls(markdown);
+  if (urls.length === 0) return false;
+
+  const targetId = kind === "article" ? parseArticleId(normalizedUrl) : parseTweetId(normalizedUrl);
+  if (!targetId) return false;
+
+  for (const url of urls) {
+    const candidateId = kind === "article" ? parseArticleId(url) : parseTweetId(url);
+    if (candidateId && candidateId === targetId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function listMarkdownFiles(dirPath: string): string[] {
+  try {
+    return fs
+      .readdirSync(dirPath)
+      .filter((name) => name.toLowerCase().endsWith(".md"))
+      .map((name) => path.join(dirPath, name))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+function resolveExistingMarkdownPath(
+  normalizedUrl: string,
+  kind: "tweet" | "article",
+  argsOutput: string | null
+): string | null {
+  const { slug, idPart } = resolveSlugAndId(normalizedUrl, kind);
+  const candidateDirs = new Set<string>();
+  const candidateFiles = new Set<string>();
+
+  if (argsOutput) {
+    const resolved = path.resolve(argsOutput);
+    const looksDir = argsOutput.endsWith("/") || argsOutput.endsWith("\\");
+    try {
+      if (fs.existsSync(resolved)) {
+        const stat = fs.statSync(resolved);
+        if (stat.isFile()) {
+          candidateFiles.add(resolved);
+        } else if (stat.isDirectory()) {
+          candidateDirs.add(path.join(resolved, slug, idPart));
+          candidateDirs.add(resolved);
+        }
+      } else if (looksDir) {
+        candidateDirs.add(path.join(resolved, slug, idPart));
+      }
+    } catch {
+      // ignore and continue
+    }
+  } else {
+    candidateDirs.add(path.resolve(process.cwd(), "x-to-markdown", slug, idPart));
+  }
+
+  for (const filePath of candidateFiles) {
+    if (!filePath.toLowerCase().endsWith(".md")) continue;
+    try {
+      const markdown = fs.readFileSync(filePath, "utf8");
+      if (frontmatterMatchesTarget(markdown, normalizedUrl, kind)) {
+        return filePath;
+      }
+    } catch {
+      // ignore and continue
+    }
+  }
+
+  for (const dirPath of candidateDirs) {
+    if (!fs.existsSync(dirPath)) continue;
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(dirPath);
+    } catch {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+
+    const markdownFiles = listMarkdownFiles(dirPath);
+    for (const filePath of markdownFiles) {
+      try {
+        const markdown = fs.readFileSync(filePath, "utf8");
+        if (frontmatterMatchesTarget(markdown, normalizedUrl, kind)) {
+          return filePath;
+        }
+      } catch {
+        // ignore and continue
+      }
+    }
+  }
+
+  return null;
+}
+
 async function resolveOutputPath(
   normalizedUrl: string,
   kind: "tweet" | "article",
@@ -218,14 +347,14 @@ async function resolveOutputPath(
   const idPart = articleId ?? tweetId ?? String(Date.now());
   const slug = userSlug ?? idPart;
 
-  const defaultFileName = `${idPart}.md`;
+  const defaultFileName = `${contentSlug}.md`;
 
   if (argsOutput) {
     const wantsDir = argsOutput.endsWith("/") || argsOutput.endsWith("\\");
     const resolved = path.resolve(argsOutput);
     try {
       if (wantsDir || (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory())) {
-        const outputDir = path.join(resolved, slug, contentSlug);
+        const outputDir = path.join(resolved, slug, idPart);
         await mkdir(outputDir, { recursive: true });
         return { outputDir, markdownPath: path.join(outputDir, defaultFileName), slug };
       }
@@ -238,7 +367,7 @@ async function resolveOutputPath(
     return { outputDir, markdownPath: resolved, slug };
   }
 
-  const outputDir = path.resolve(process.cwd(), "x-to-markdown", slug, contentSlug);
+  const outputDir = path.resolve(process.cwd(), "x-to-markdown", slug, idPart);
   await mkdir(outputDir, { recursive: true });
   return { outputDir, markdownPath: path.join(outputDir, defaultFileName), slug };
 }
@@ -349,7 +478,8 @@ async function convertArticleToMarkdown(
 
   log(`[x-to-markdown] Fetching article ${articleId}...`);
   const article = await fetchXArticle(articleId, cookieMap, false);
-  const { markdown: body, coverUrl } = formatArticleMarkdown(article);
+  const referencedTweets = await resolveReferencedTweetsFromArticle(article, cookieMap, { log });
+  const { markdown: body, coverUrl } = formatArticleMarkdown(article, { referencedTweets });
 
   const title = typeof (article as any)?.title === "string" ? String((article as any).title).trim() : "";
   const meta = formatMetaMarkdown({
@@ -388,6 +518,58 @@ async function main(): Promise<void> {
   }
 
   const kind = articleId ? ("article" as const) : ("tweet" as const);
+
+  if (args.downloadMedia) {
+    const existingMarkdownPath = resolveExistingMarkdownPath(normalizedUrl, kind, args.output);
+    if (existingMarkdownPath) {
+      log(`[x-to-markdown] Reusing existing markdown: ${existingMarkdownPath}`);
+      const existingMarkdown = await readFile(existingMarkdownPath, "utf8");
+      const mediaResult = await localizeMarkdownMedia(existingMarkdown, {
+        markdownPath: existingMarkdownPath,
+        log,
+      });
+      const didLocalize =
+        mediaResult.downloadedImages > 0 ||
+        mediaResult.downloadedVideos > 0 ||
+        mediaResult.markdown !== existingMarkdown;
+
+      if (didLocalize) {
+        await writeFile(existingMarkdownPath, mediaResult.markdown, "utf8");
+        log(
+          `[x-to-markdown] Media localized: images=${mediaResult.downloadedImages}, videos=${mediaResult.downloadedVideos}`
+        );
+        log(`[x-to-markdown] Saved: ${existingMarkdownPath}`);
+
+        const { slug } = resolveSlugAndId(normalizedUrl, kind);
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                url: articleId ? `https://x.com/i/article/${articleId}` : normalizedUrl,
+                requestedUrl: normalizedUrl,
+                type: kind,
+                slug,
+                outputDir: path.dirname(existingMarkdownPath),
+                markdownPath: existingMarkdownPath,
+                downloadMedia: true,
+                downloadedImages: mediaResult.downloadedImages,
+                downloadedVideos: mediaResult.downloadedVideos,
+                imageDir: mediaResult.imageDir,
+                videoDir: mediaResult.videoDir,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(existingMarkdownPath);
+        }
+        return;
+      }
+
+      log("[x-to-markdown] Existing markdown already localized; rebuilding content to refresh placement.");
+    }
+  }
 
   let markdown =
     kind === "article" && articleId

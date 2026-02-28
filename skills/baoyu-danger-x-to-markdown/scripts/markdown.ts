@@ -2,8 +2,21 @@ import type {
   ArticleBlock,
   ArticleContentState,
   ArticleEntity,
+  ArticleEntityMapEntry,
   ArticleMediaInfo,
 } from "./types.js";
+
+export type ReferencedTweetInfo = {
+  id: string;
+  url: string;
+  authorName?: string;
+  authorUsername?: string;
+  text?: string;
+};
+
+export type FormatArticleOptions = {
+  referencedTweets?: Map<string, ReferencedTweetInfo>;
+};
 
 function coerceArticleEntity(value: unknown): ArticleEntity | null {
   if (!value || typeof value !== "object") return null;
@@ -27,6 +40,73 @@ function normalizeCaption(caption?: string): string {
   const trimmed = caption?.trim();
   if (!trimmed) return "";
   return trimmed.replace(/\s+/g, " ");
+}
+
+function summarizeTweetText(text?: string): string {
+  const trimmed = text?.trim();
+  if (!trimmed) return "";
+  const normalized = trimmed
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" ");
+  if (normalized.length <= 280) return normalized;
+  return `${normalized.slice(0, 277)}...`;
+}
+
+function buildTweetUrl(tweetId?: string, username?: string): string | null {
+  if (!tweetId) return null;
+  if (username) {
+    return `https://x.com/${username}/status/${tweetId}`;
+  }
+  return `https://x.com/i/web/status/${tweetId}`;
+}
+
+type EntityLookup = {
+  byIndex: Map<number, ArticleEntityMapEntry>;
+  byLogicalKey: Map<number, ArticleEntityMapEntry>;
+};
+
+function buildEntityLookup(
+  entityMap: ArticleContentState["entityMap"] | undefined
+): EntityLookup {
+  const lookup: EntityLookup = {
+    byIndex: new Map<number, ArticleEntityMapEntry>(),
+    byLogicalKey: new Map<number, ArticleEntityMapEntry>(),
+  };
+
+  if (!entityMap) return lookup;
+
+  for (const [idx, entry] of Object.entries(entityMap)) {
+    const idxNum = Number(idx);
+    if (Number.isFinite(idxNum)) {
+      lookup.byIndex.set(idxNum, entry);
+    }
+
+    const logicalKey = parseInt(entry?.key ?? "", 10);
+    if (Number.isFinite(logicalKey) && !lookup.byLogicalKey.has(logicalKey)) {
+      lookup.byLogicalKey.set(logicalKey, entry);
+    }
+  }
+
+  return lookup;
+}
+
+function resolveEntityEntry(
+  entityKey: number | undefined,
+  entityMap: ArticleContentState["entityMap"] | undefined,
+  lookup: EntityLookup
+): ArticleEntityMapEntry | undefined {
+  if (entityKey === undefined) return undefined;
+
+  const byLogicalKey = lookup.byLogicalKey.get(entityKey);
+  if (byLogicalKey) return byLogicalKey;
+
+  const byIndex = lookup.byIndex.get(entityKey);
+  if (byIndex) return byIndex;
+
+  if (!entityMap) return undefined;
+  return entityMap[String(entityKey)];
 }
 
 function resolveMediaUrl(info?: ArticleMediaInfo): string | undefined {
@@ -79,11 +159,12 @@ function collectMediaUrls(
 function resolveEntityMediaLines(
   entityKey: number | undefined,
   entityMap: ArticleContentState["entityMap"] | undefined,
+  entityLookup: EntityLookup,
   mediaById: Map<string, string>,
   usedUrls: Set<string>
 ): string[] {
-  if (entityKey === undefined || !entityMap) return [];
-  const entry = entityMap[String(entityKey)];
+  if (entityKey === undefined) return [];
+  const entry = resolveEntityEntry(entityKey, entityMap, entityLookup);
   const value = entry?.value;
   if (!value) return [];
   const type = value.type;
@@ -114,6 +195,45 @@ function resolveEntityMediaLines(
     lines.push(`![${altText}](${fallbackUrl})`);
   }
 
+  return lines;
+}
+
+function resolveEntityTweetLines(
+  entityKey: number | undefined,
+  entityMap: ArticleContentState["entityMap"] | undefined,
+  entityLookup: EntityLookup,
+  referencedTweets?: Map<string, ReferencedTweetInfo>
+): string[] {
+  if (entityKey === undefined) return [];
+  const entry = resolveEntityEntry(entityKey, entityMap, entityLookup);
+  const value = entry?.value;
+  if (!value || value.type !== "TWEET") return [];
+
+  const tweetId = typeof value.data?.tweetId === "string" ? value.data.tweetId : "";
+  if (!tweetId) return [];
+
+  const referenced = referencedTweets?.get(tweetId);
+  const url =
+    referenced?.url ??
+    buildTweetUrl(tweetId, referenced?.authorUsername) ??
+    `https://x.com/i/web/status/${tweetId}`;
+
+  const authorText =
+    referenced?.authorName && referenced?.authorUsername
+      ? `${referenced.authorName} (@${referenced.authorUsername})`
+      : referenced?.authorUsername
+        ? `@${referenced.authorUsername}`
+        : referenced?.authorName;
+
+  const lines: string[] = [];
+  lines.push(`> 引用推文${authorText ? `：${authorText}` : ""}`);
+
+  const summary = summarizeTweetText(referenced?.text);
+  if (summary) {
+    lines.push(`> ${summary}`);
+  }
+
+  lines.push(`> ${url}`);
   return lines;
 }
 
@@ -151,6 +271,7 @@ function buildMediaLinkMap(
     if (linkIdx === -1) linkIdx = 0;
     const link = pool.splice(linkIdx, 1)[0]!;
     map.set(media.idx, link.url);
+    map.set(media.key, link.url);
   }
 
   return map;
@@ -160,6 +281,7 @@ function renderInlineLinks(
   text: string,
   entityRanges: Array<{ key?: number; offset?: number; length?: number }>,
   entityMap: ArticleContentState["entityMap"] | undefined,
+  entityLookup: EntityLookup,
   mediaLinkMap: Map<number, string>
 ): string {
   if (!entityMap || entityRanges.length === 0) return text;
@@ -181,7 +303,7 @@ function renderInlineLinks(
     const length = range.length!;
     const key = range.key!;
 
-    const entry = entityMap[String(key)];
+    const entry = resolveEntityEntry(key, entityMap, entityLookup);
     const value = entry?.value;
     if (!value) continue;
 
@@ -204,27 +326,14 @@ function renderInlineLinks(
   return result;
 }
 
-function buildAtomicMediaQueue(
-  article: ArticleEntity,
-  usedUrls: Set<string>
-): string[] {
-  const queue: string[] = [];
-  for (const entity of article.media_entities ?? []) {
-    const url = resolveMediaUrl(entity?.media_info);
-    if (url && !usedUrls.has(url)) {
-      queue.push(url);
-    }
-  }
-  return queue;
-}
-
 function renderContentBlocks(
   blocks: ArticleBlock[],
   entityMap: ArticleContentState["entityMap"] | undefined,
+  entityLookup: EntityLookup,
   mediaById: Map<string, string>,
   usedUrls: Set<string>,
-  atomicMediaQueue: string[],
-  mediaLinkMap: Map<number, string>
+  mediaLinkMap: Map<number, string>,
+  referencedTweets?: Map<string, ReferencedTweetInfo>
 ): string[] {
   const lines: string[] = [];
   let previousKind: "list" | "quote" | "heading" | "text" | "code" | "media" | null = null;
@@ -253,9 +362,45 @@ function renderContentBlocks(
     const mediaLines: string[] = [];
     for (const range of ranges) {
       if (typeof range?.key !== "number") continue;
-      mediaLines.push(...resolveEntityMediaLines(range.key, entityMap, mediaById, usedUrls));
+      mediaLines.push(
+        ...resolveEntityMediaLines(range.key, entityMap, entityLookup, mediaById, usedUrls)
+      );
     }
     return mediaLines;
+  };
+
+  const collectTweetLines = (block: ArticleBlock): string[] => {
+    const ranges = Array.isArray(block.entityRanges) ? block.entityRanges : [];
+    const tweetLines: string[] = [];
+    for (const range of ranges) {
+      if (typeof range?.key !== "number") continue;
+      tweetLines.push(
+        ...resolveEntityTweetLines(range.key, entityMap, entityLookup, referencedTweets)
+      );
+    }
+    return tweetLines;
+  };
+
+  const collectLinkLines = (block: ArticleBlock): string[] => {
+    const ranges = Array.isArray(block.entityRanges) ? block.entityRanges : [];
+    const linkLines: string[] = [];
+    for (const range of ranges) {
+      if (typeof range?.key !== "number") continue;
+      const entry = resolveEntityEntry(range.key, entityMap, entityLookup);
+      const value = entry?.value;
+      if (value?.type !== "LINK") continue;
+      const url = typeof value.data?.url === "string" ? value.data.url : "";
+      if (url) {
+        linkLines.push(url);
+      }
+    }
+    return [...new Set(linkLines)];
+  };
+
+  const pushTrailingMedia = (mediaLines: string[]) => {
+    if (mediaLines.length > 0) {
+      pushBlock(mediaLines, "media");
+    }
   };
 
   for (const block of blocks) {
@@ -264,7 +409,7 @@ function renderContentBlocks(
     const ranges = Array.isArray(block.entityRanges) ? block.entityRanges : [];
     const text =
       type !== "atomic" && type !== "code-block"
-        ? renderInlineLinks(rawText, ranges, entityMap, mediaLinkMap)
+        ? renderInlineLinks(rawText, ranges, entityMap, entityLookup, mediaLinkMap)
         : rawText;
 
     if (type === "code-block") {
@@ -290,16 +435,22 @@ function renderContentBlocks(
       }
       listKind = null;
       orderedIndex = 0;
+
+      const tweetLines = collectTweetLines(block);
+      if (tweetLines.length > 0) {
+        pushBlock(tweetLines, "quote");
+      }
+
       const mediaLines = collectMediaLines(block);
       if (mediaLines.length > 0) {
         pushBlock(mediaLines, "media");
-      } else if (atomicMediaQueue.length > 0) {
-        const url = atomicMediaQueue.shift()!;
-        if (!usedUrls.has(url)) {
-          usedUrls.add(url);
-          pushBlock([`![](${url})`], "media");
-        }
       }
+
+      const linkLines = collectLinkLines(block);
+      if (linkLines.length > 0) {
+        pushBlock(linkLines, "text");
+      }
+
       continue;
     }
 
@@ -313,6 +464,7 @@ function renderContentBlocks(
       listKind = "unordered";
       orderedIndex = 0;
       pushBlock([`- ${text}`], "list");
+      pushTrailingMedia(collectMediaLines(block));
       continue;
     }
 
@@ -323,6 +475,7 @@ function renderContentBlocks(
       listKind = "ordered";
       orderedIndex += 1;
       pushBlock([`${orderedIndex}. ${text}`], "list");
+      pushTrailingMedia(collectMediaLines(block));
       continue;
     }
 
@@ -332,29 +485,41 @@ function renderContentBlocks(
     switch (type) {
       case "header-one":
         pushBlock([`# ${text}`], "heading");
+        pushTrailingMedia(collectMediaLines(block));
         break;
       case "header-two":
         pushBlock([`## ${text}`], "heading");
+        pushTrailingMedia(collectMediaLines(block));
         break;
       case "header-three":
         pushBlock([`### ${text}`], "heading");
+        pushTrailingMedia(collectMediaLines(block));
         break;
       case "header-four":
         pushBlock([`#### ${text}`], "heading");
+        pushTrailingMedia(collectMediaLines(block));
         break;
       case "header-five":
         pushBlock([`##### ${text}`], "heading");
+        pushTrailingMedia(collectMediaLines(block));
         break;
       case "header-six":
         pushBlock([`###### ${text}`], "heading");
+        pushTrailingMedia(collectMediaLines(block));
         break;
       case "blockquote": {
         const quoteLines = text.length > 0 ? text.split("\n") : [""];
         pushBlock(quoteLines.map((line) => `> ${line}`), "quote");
+        pushTrailingMedia(collectMediaLines(block));
         break;
       }
       default:
+        if (/^XIMGPH_\d+$/.test(text.trim())) {
+          pushTrailingMedia(collectMediaLines(block));
+          break;
+        }
         pushBlock([text], "text");
+        pushTrailingMedia(collectMediaLines(block));
         break;
     }
   }
@@ -371,7 +536,28 @@ export type FormatArticleResult = {
   coverUrl: string | null;
 };
 
-export function formatArticleMarkdown(article: unknown): FormatArticleResult {
+export function extractReferencedTweetIds(article: unknown): string[] {
+  const candidate = coerceArticleEntity(article);
+  const entityMap = candidate?.content_state?.entityMap;
+  if (!entityMap) return [];
+
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of Object.values(entityMap)) {
+    const value = entry?.value;
+    if (value?.type !== "TWEET") continue;
+    const tweetId = typeof value.data?.tweetId === "string" ? value.data.tweetId : "";
+    if (!tweetId || seen.has(tweetId)) continue;
+    seen.add(tweetId);
+    ids.push(tweetId);
+  }
+  return ids;
+}
+
+export function formatArticleMarkdown(
+  article: unknown,
+  options: FormatArticleOptions = {}
+): FormatArticleResult {
   const candidate = coerceArticleEntity(article);
   if (!candidate) {
     return { markdown: `\`\`\`json\n${JSON.stringify(article, null, 2)}\n\`\`\``, coverUrl: null };
@@ -392,10 +578,18 @@ export function formatArticleMarkdown(article: unknown): FormatArticleResult {
 
   const blocks = candidate.content_state?.blocks;
   const entityMap = candidate.content_state?.entityMap;
+  const entityLookup = buildEntityLookup(entityMap);
   if (Array.isArray(blocks) && blocks.length > 0) {
-    const atomicMediaQueue = buildAtomicMediaQueue(candidate, usedUrls);
     const mediaLinkMap = buildMediaLinkMap(entityMap);
-    const rendered = renderContentBlocks(blocks, entityMap, mediaById, usedUrls, atomicMediaQueue, mediaLinkMap);
+    const rendered = renderContentBlocks(
+      blocks,
+      entityMap,
+      entityLookup,
+      mediaById,
+      usedUrls,
+      mediaLinkMap,
+      options.referencedTweets
+    );
     if (rendered.length > 0) {
       if (lines.length > 0) lines.push("");
       lines.push(...rendered);
