@@ -117,11 +117,114 @@ function resolveEntityMediaLines(
   return lines;
 }
 
+function buildMediaLinkMap(
+  entityMap: ArticleContentState["entityMap"] | undefined
+): Map<number, string> {
+  const map = new Map<number, string>();
+  if (!entityMap) return map;
+
+  const mediaEntries: { idx: number; key: number }[] = [];
+  const linkEntries: { key: number; url: string }[] = [];
+
+  for (const [idx, entry] of Object.entries(entityMap)) {
+    const value = entry?.value;
+    if (!value) continue;
+    const key = parseInt(entry?.key ?? "", 10);
+    if (isNaN(key)) continue;
+
+    if (value.type === "MEDIA" || value.type === "IMAGE") {
+      mediaEntries.push({ idx: Number(idx), key });
+    } else if (value.type === "LINK" && typeof value.data?.url === "string") {
+      linkEntries.push({ key, url: value.data.url });
+    }
+  }
+
+  if (mediaEntries.length === 0 || linkEntries.length === 0) return map;
+
+  mediaEntries.sort((a, b) => a.key - b.key);
+  linkEntries.sort((a, b) => a.key - b.key);
+
+  const pool = [...linkEntries];
+  for (const media of mediaEntries) {
+    if (pool.length === 0) break;
+    let linkIdx = pool.findIndex((l) => l.key > media.key);
+    if (linkIdx === -1) linkIdx = 0;
+    const link = pool.splice(linkIdx, 1)[0]!;
+    map.set(media.idx, link.url);
+  }
+
+  return map;
+}
+
+function renderInlineLinks(
+  text: string,
+  entityRanges: Array<{ key?: number; offset?: number; length?: number }>,
+  entityMap: ArticleContentState["entityMap"] | undefined,
+  mediaLinkMap: Map<number, string>
+): string {
+  if (!entityMap || entityRanges.length === 0) return text;
+
+  const valid = entityRanges.filter(
+    (r) =>
+      typeof r.key === "number" &&
+      typeof r.offset === "number" &&
+      typeof r.length === "number" &&
+      r.length > 0
+  );
+  if (valid.length === 0) return text;
+
+  const sorted = [...valid].sort((a, b) => (b.offset ?? 0) - (a.offset ?? 0));
+
+  let result = text;
+  for (const range of sorted) {
+    const offset = range.offset!;
+    const length = range.length!;
+    const key = range.key!;
+
+    const entry = entityMap[String(key)];
+    const value = entry?.value;
+    if (!value) continue;
+
+    let url: string | undefined;
+    if (value.type === "LINK" && typeof value.data?.url === "string") {
+      url = value.data.url;
+    } else if (value.type === "MEDIA" || value.type === "IMAGE") {
+      url = mediaLinkMap.get(key);
+    }
+
+    if (!url) continue;
+
+    const linkText = result.slice(offset, offset + length);
+    result =
+      result.slice(0, offset) +
+      `[${linkText}](${url})` +
+      result.slice(offset + length);
+  }
+
+  return result;
+}
+
+function buildAtomicMediaQueue(
+  article: ArticleEntity,
+  usedUrls: Set<string>
+): string[] {
+  const queue: string[] = [];
+  for (const entity of article.media_entities ?? []) {
+    const url = resolveMediaUrl(entity?.media_info);
+    if (url && !usedUrls.has(url)) {
+      queue.push(url);
+    }
+  }
+  return queue;
+}
+
 function renderContentBlocks(
   blocks: ArticleBlock[],
   entityMap: ArticleContentState["entityMap"] | undefined,
   mediaById: Map<string, string>,
-  usedUrls: Set<string>
+  usedUrls: Set<string>,
+  atomicMediaQueue: string[],
+  mediaLinkMap: Map<number, string>
 ): string[] {
   const lines: string[] = [];
   let previousKind: "list" | "quote" | "heading" | "text" | "code" | "media" | null = null;
@@ -157,7 +260,12 @@ function renderContentBlocks(
 
   for (const block of blocks) {
     const type = typeof block?.type === "string" ? block.type : "unstyled";
-    const text = typeof block?.text === "string" ? block.text : "";
+    const rawText = typeof block?.text === "string" ? block.text : "";
+    const ranges = Array.isArray(block.entityRanges) ? block.entityRanges : [];
+    const text =
+      type !== "atomic" && type !== "code-block"
+        ? renderInlineLinks(rawText, ranges, entityMap, mediaLinkMap)
+        : rawText;
 
     if (type === "code-block") {
       if (!inCodeBlock) {
@@ -185,6 +293,12 @@ function renderContentBlocks(
       const mediaLines = collectMediaLines(block);
       if (mediaLines.length > 0) {
         pushBlock(mediaLines, "media");
+      } else if (atomicMediaQueue.length > 0) {
+        const url = atomicMediaQueue.shift()!;
+        if (!usedUrls.has(url)) {
+          usedUrls.add(url);
+          pushBlock([`![](${url})`], "media");
+        }
       }
       continue;
     }
@@ -243,11 +357,6 @@ function renderContentBlocks(
         pushBlock([text], "text");
         break;
     }
-
-    const trailingMediaLines = collectMediaLines(block);
-    if (trailingMediaLines.length > 0) {
-      pushBlock(trailingMediaLines, "media");
-    }
   }
 
   if (inCodeBlock) {
@@ -284,7 +393,9 @@ export function formatArticleMarkdown(article: unknown): FormatArticleResult {
   const blocks = candidate.content_state?.blocks;
   const entityMap = candidate.content_state?.entityMap;
   if (Array.isArray(blocks) && blocks.length > 0) {
-    const rendered = renderContentBlocks(blocks, entityMap, mediaById, usedUrls);
+    const atomicMediaQueue = buildAtomicMediaQueue(candidate, usedUrls);
+    const mediaLinkMap = buildMediaLinkMap(entityMap);
+    const rendered = renderContentBlocks(blocks, entityMap, mediaById, usedUrls, atomicMediaQueue, mediaLinkMap);
     if (rendered.length > 0) {
       if (lines.length > 0) lines.push("");
       lines.push(...rendered);

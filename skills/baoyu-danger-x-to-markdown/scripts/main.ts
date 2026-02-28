@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import process from "node:process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { fetchXArticle } from "./graphql.js";
 import { formatArticleMarkdown } from "./markdown.js";
@@ -182,36 +182,32 @@ function sanitizeSlug(input: string): string {
     .slice(0, 120);
 }
 
-function formatBackupTimestamp(date: Date = new Date()): string {
-  const pad2 = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}-${pad2(date.getHours())}${pad2(
-    date.getMinutes()
-  )}${pad2(date.getSeconds())}`;
-}
-
-async function backupDirIfExists(dir: string, log: (message: string) => void): Promise<void> {
-  try {
-    if (!fs.existsSync(dir)) return;
-    const stat = fs.statSync(dir);
-    if (!stat.isDirectory()) return;
-    const backup = `${dir}-backup-${formatBackupTimestamp()}`;
-    await rename(dir, backup);
-    log(`[x-to-markdown] Existing directory moved to: ${backup}`);
-  } catch (error) {
-    throw new Error(
-      `Failed to backup existing directory (${dir}): ${error instanceof Error ? error.message : String(error ?? "")}`
-    );
+function extractContentSlug(markdown: string): string {
+  const headingMatch = markdown.match(/^#\s+(.+)$/m);
+  if (headingMatch?.[1]) {
+    return sanitizeSlug(headingMatch[1].slice(0, 60)).toLowerCase();
   }
-}
-
-function resolveDefaultOutputDir(slug: string): string {
-  return path.resolve(process.cwd(), "x-to-markdown", slug);
+  const lines = markdown.split("\n");
+  let inFrontmatter = false;
+  for (const line of lines) {
+    if (line === "---") {
+      inFrontmatter = !inFrontmatter;
+      continue;
+    }
+    if (inFrontmatter) continue;
+    const trimmed = line.trim();
+    if (trimmed) {
+      return sanitizeSlug(trimmed.slice(0, 60)).toLowerCase();
+    }
+  }
+  return "untitled";
 }
 
 async function resolveOutputPath(
   normalizedUrl: string,
   kind: "tweet" | "article",
   argsOutput: string | null,
+  contentSlug: string,
   log: (message: string) => void
 ): Promise<{ outputDir: string; markdownPath: string; slug: string }> {
   const articleId = kind === "article" ? parseArticleId(normalizedUrl) : null;
@@ -222,15 +218,14 @@ async function resolveOutputPath(
   const idPart = articleId ?? tweetId ?? String(Date.now());
   const slug = userSlug ?? idPart;
 
-  const defaultFileName = kind === "article" ? `${idPart}.md` : `${idPart}.md`;
+  const defaultFileName = `${idPart}.md`;
 
   if (argsOutput) {
     const wantsDir = argsOutput.endsWith("/") || argsOutput.endsWith("\\");
     const resolved = path.resolve(argsOutput);
     try {
       if (wantsDir || (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory())) {
-        const outputDir = path.join(resolved, slug);
-        await backupDirIfExists(outputDir, log);
+        const outputDir = path.join(resolved, slug, contentSlug);
         await mkdir(outputDir, { recursive: true });
         return { outputDir, markdownPath: path.join(outputDir, defaultFileName), slug };
       }
@@ -243,8 +238,7 @@ async function resolveOutputPath(
     return { outputDir, markdownPath: resolved, slug };
   }
 
-  const outputDir = resolveDefaultOutputDir(slug);
-  await backupDirIfExists(outputDir, log);
+  const outputDir = path.resolve(process.cwd(), "x-to-markdown", slug, contentSlug);
   await mkdir(outputDir, { recursive: true });
   return { outputDir, markdownPath: path.join(outputDir, defaultFileName), slug };
 }
@@ -394,12 +388,14 @@ async function main(): Promise<void> {
   }
 
   const kind = articleId ? ("article" as const) : ("tweet" as const);
-  const { outputDir, markdownPath, slug } = await resolveOutputPath(normalizedUrl, kind, args.output, log);
 
   let markdown =
     kind === "article" && articleId
       ? await convertArticleToMarkdown(normalizedUrl, articleId, log)
       : await tweetToMarkdown(normalizedUrl, { log });
+
+  const contentSlug = extractContentSlug(markdown);
+  const { outputDir, markdownPath, slug } = await resolveOutputPath(normalizedUrl, kind, args.output, contentSlug, log);
 
   let mediaResult: LocalizeMarkdownMediaResult | null = null;
 
