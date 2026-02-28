@@ -2,6 +2,11 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.41.0 - 2026-02-28
+
+### Features
+- `baoyu-markdown-to-html`: rename themes (red→heritage, orange→warm), add 13 named color presets, serif-cjk font family, and per-theme style defaults
+
 ## 1.40.1 - 2026-02-28
 
 ### Features

@@ -2,6 +2,11 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.41.0 - 2026-02-28
+
+### 新功能
+- `baoyu-markdown-to-html`：重命名主题（red→heritage、orange→warm），新增 13 个颜色预设、serif-cjk 字体、主题级样式默认值
+
 ## 1.40.1 - 2026-02-28
 
 ### 新功能
