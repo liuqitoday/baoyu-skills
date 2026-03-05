@@ -2,6 +2,14 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.44.0 - 2026-03-05
+
+### Features
+- `baoyu-url-to-markdown`: add `--download-media` flag to download images and videos to local directories, rewriting markdown links to local paths
+- `baoyu-url-to-markdown`: extract cover image from page meta (og:image) into YAML front matter `coverImage` field
+- `baoyu-url-to-markdown`: handle `data-src` lazy loading for WeChat and similar sites
+- `baoyu-url-to-markdown`: add EXTEND.md preferences with first-time setup for media download behavior
+
 ## 1.43.2 - 2026-03-05
 
 ### Refactor
