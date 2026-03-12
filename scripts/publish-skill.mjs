@@ -220,7 +220,7 @@ async function publishSkill({ registry, token, skill, files, version, changelog,
   );
 
   for (const file of files) {
-    form.append("files", new Blob([file.bytes], { type: "application/octet-stream" }), file.relPath);
+    form.append("files", new Blob([file.bytes], { type: mimeType(file.relPath) }), file.relPath);
   }
 
   const response = await fetch(`${registry}/api/v1/skills`, {
@@ -279,6 +279,26 @@ function titleCase(value) {
     .replace(/[-_]+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+const MIME_MAP = {
+  ".md": "text/markdown",
+  ".ts": "text/plain",
+  ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".json": "application/json",
+  ".yml": "text/yaml",
+  ".yaml": "text/yaml",
+  ".txt": "text/plain",
+  ".html": "text/html",
+  ".css": "text/css",
+  ".xml": "text/xml",
+  ".svg": "image/svg+xml",
+};
+
+function mimeType(relPath) {
+  const ext = path.extname(relPath).toLowerCase();
+  return MIME_MAP[ext] || "text/plain";
 }
 
 function parseBoolean(value) {
