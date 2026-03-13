@@ -1,0 +1,9 @@
+{
+  "name": "baoyu-skills",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:coverage": "node --experimental-test-coverage --test"
+  }
+}
