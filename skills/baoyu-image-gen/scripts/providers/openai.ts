@@ -8,7 +8,7 @@ export function getDefaultModel(): string {
 
 type OpenAIImageResponse = { data: Array<{ url?: string; b64_json?: string }> };
 
-function parseAspectRatio(ar: string): { width: number; height: number } | null {
+export function parseAspectRatio(ar: string): { width: number; height: number } | null {
   const match = ar.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
   if (!match) return null;
   const w = parseFloat(match[1]!);
@@ -23,7 +23,7 @@ type SizeMapping = {
   portrait: string;
 };
 
-function getOpenAISize(
+export function getOpenAISize(
   model: string,
   ar: string | null,
   quality: CliArgs["quality"]
@@ -201,7 +201,7 @@ async function generateWithOpenAIEdits(
   return extractImageFromResponse(result);
 }
 
-function getMimeType(filename: string): string {
+export function getMimeType(filename: string): string {
   const ext = path.extname(filename).toLowerCase();
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
   if (ext === ".webp") return "image/webp";
@@ -209,7 +209,7 @@ function getMimeType(filename: string): string {
   return "image/png";
 }
 
-async function extractImageFromResponse(result: OpenAIImageResponse): Promise<Uint8Array> {
+export async function extractImageFromResponse(result: OpenAIImageResponse): Promise<Uint8Array> {
   const img = result.data[0];
 
   if (img?.b64_json) {

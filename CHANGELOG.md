@@ -2,6 +2,40 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.67.0 - 2026-03-13
+
+### Features
+- `baoyu-image-gen`: add qwen-image-2.0-pro model support for DashScope provider with free-form sizes and text rendering (by @JianJang2017)
+
+## 1.66.1 - 2026-03-13
+
+### Tests
+- Migrate test files from centralized `tests/` directory to colocate with source code
+- Convert tests from `.mjs` to TypeScript (`.test.ts`) with `tsx` runner
+- Add npm workspaces configuration and npm cache to CI workflow
+
+## 1.66.0 - 2026-03-13
+
+### Features
+- `baoyu-image-gen`: add Jimeng (即梦) and Seedream (豆包) image generation providers (by @lindaifeng)
+
+### Fixes
+- `baoyu-image-gen`: tighten Jimeng provider behavior
+
+### Refactor
+- `baoyu-image-gen`: export functions for testability and add module entry guard
+
+### Documentation
+- `baoyu-image-gen`: add Jimeng and Seedream provider documentation to SKILL.md and READMEs
+
+### Tests
+- Add test infrastructure with CI workflow and image-gen unit tests
+
+## 1.65.1 - 2026-03-13
+
+### Refactor
+- `baoyu-translate`: replace remark/unified with markdown-it for chunk parsing, add main.ts CLI entry point
+
 ## 1.65.0 - 2026-03-13
 
 ### Features

@@ -1,6 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import type {
   BatchFile,
@@ -55,6 +56,8 @@ const DEFAULT_PROVIDER_RATE_LIMITS: Record<Provider, ProviderRateLimit> = {
   openai: { concurrency: 3, startIntervalMs: 1100 },
   openrouter: { concurrency: 3, startIntervalMs: 1100 },
   dashscope: { concurrency: 3, startIntervalMs: 1100 },
+  jimeng: { concurrency: 3, startIntervalMs: 1100 },
+  seedream: { concurrency: 3, startIntervalMs: 1100 },
 };
 
 function printUsage(): void {
@@ -69,7 +72,7 @@ Options:
   --image <path>            Output image path (required in single-image mode)
   --batchfile <path>        JSON batch file for multi-image generation
   --jobs <count>            Worker count for batch mode (default: auto, max from config, built-in default 10)
-  --provider google|openai|openrouter|dashscope|replicate  Force provider (auto-detect by default)
+  --provider google|openai|openrouter|dashscope|replicate|jimeng|seedream  Force provider (auto-detect by default)
   -m, --model <id>          Model ID
   --ar <ratio>              Aspect ratio (e.g., 16:9, 1:1, 4:3)
   --size <WxH>              Size (e.g., 1024x1024)
@@ -107,11 +110,16 @@ Environment variables:
   GEMINI_API_KEY            Gemini API key (alias for GOOGLE_API_KEY)
   DASHSCOPE_API_KEY         DashScope API key
   REPLICATE_API_TOKEN       Replicate API token
+  JIMENG_ACCESS_KEY_ID      Jimeng Access Key ID
+  JIMENG_SECRET_ACCESS_KEY  Jimeng Secret Access Key
+  ARK_API_KEY               Seedream/Ark API key
   OPENAI_IMAGE_MODEL        Default OpenAI model (gpt-image-1.5)
   OPENROUTER_IMAGE_MODEL    Default OpenRouter model (google/gemini-3.1-flash-image-preview)
   GOOGLE_IMAGE_MODEL        Default Google model (gemini-3-pro-image-preview)
-  DASHSCOPE_IMAGE_MODEL     Default DashScope model (z-image-turbo)
+  DASHSCOPE_IMAGE_MODEL     Default DashScope model (qwen-image-2.0-pro)
   REPLICATE_IMAGE_MODEL     Default Replicate model (google/nano-banana-pro)
+  JIMENG_IMAGE_MODEL        Default Jimeng model (jimeng_t2i_v40)
+  SEEDREAM_IMAGE_MODEL      Default Seedream model (doubao-seedream-5-0-260128)
   OPENAI_BASE_URL           Custom OpenAI endpoint
   OPENAI_IMAGE_USE_CHAT     Use /chat/completions instead of /images/generations (true|false)
   OPENROUTER_BASE_URL       Custom OpenRouter endpoint
@@ -120,6 +128,8 @@ Environment variables:
   GOOGLE_BASE_URL           Custom Google endpoint
   DASHSCOPE_BASE_URL        Custom DashScope endpoint
   REPLICATE_BASE_URL        Custom Replicate endpoint
+  JIMENG_BASE_URL           Custom Jimeng endpoint
+  SEEDREAM_BASE_URL         Custom Seedream endpoint
   BAOYU_IMAGE_GEN_MAX_WORKERS  Override batch worker cap
   BAOYU_IMAGE_GEN_<PROVIDER>_CONCURRENCY  Override provider concurrency
   BAOYU_IMAGE_GEN_<PROVIDER>_START_INTERVAL_MS  Override provider start gap in ms
@@ -127,7 +137,7 @@ Environment variables:
 Env file load order: CLI args > EXTEND.md > process.env > <cwd>/.baoyu-skills/.env > ~/.baoyu-skills/.env`);
 }
 
-function parseArgs(argv: string[]): CliArgs {
+export function parseArgs(argv: string[]): CliArgs {
   const out: CliArgs = {
     prompt: null,
     promptFiles: [],
@@ -217,7 +227,9 @@ function parseArgs(argv: string[]): CliArgs {
         v !== "openai" &&
         v !== "openrouter" &&
         v !== "dashscope" &&
-        v !== "replicate"
+        v !== "replicate" &&
+        v !== "jimeng" &&
+        v !== "seedream"
       ) {
         throw new Error(`Invalid provider: ${v}`);
       }
@@ -327,12 +339,12 @@ async function loadEnv(): Promise<void> {
   }
 }
 
-function extractYamlFrontMatter(content: string): string | null {
+export function extractYamlFrontMatter(content: string): string | null {
   const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*$/m);
   return match ? match[1] : null;
 }
 
-function parseSimpleYaml(yaml: string): Partial<ExtendConfig> {
+export function parseSimpleYaml(yaml: string): Partial<ExtendConfig> {
   const config: Partial<ExtendConfig> = {};
   const lines = yaml.split("\n");
   let currentKey: string | null = null;
@@ -370,6 +382,8 @@ function parseSimpleYaml(yaml: string): Partial<ExtendConfig> {
           openrouter: null,
           dashscope: null,
           replicate: null,
+          jimeng: null,
+          seedream: null,
         };
         currentKey = "default_model";
         currentProvider = null;
@@ -393,7 +407,9 @@ function parseSimpleYaml(yaml: string): Partial<ExtendConfig> {
           key === "openai" ||
           key === "openrouter" ||
           key === "dashscope" ||
-          key === "replicate"
+          key === "replicate" ||
+          key === "jimeng" ||
+          key === "seedream"
         )
       ) {
         config.batch ??= {};
@@ -407,7 +423,9 @@ function parseSimpleYaml(yaml: string): Partial<ExtendConfig> {
           key === "openai" ||
           key === "openrouter" ||
           key === "dashscope" ||
-          key === "replicate"
+          key === "replicate" ||
+          key === "jimeng" ||
+          key === "seedream"
         )
       ) {
         const cleaned = value.replace(/['"]/g, "");
@@ -456,7 +474,7 @@ async function loadExtendConfig(): Promise<Partial<ExtendConfig>> {
   return {};
 }
 
-function mergeConfig(args: CliArgs, extend: Partial<ExtendConfig>): CliArgs {
+export function mergeConfig(args: CliArgs, extend: Partial<ExtendConfig>): CliArgs {
   return {
     ...args,
     provider: args.provider ?? extend.default_provider ?? null,
@@ -466,13 +484,13 @@ function mergeConfig(args: CliArgs, extend: Partial<ExtendConfig>): CliArgs {
   };
 }
 
-function parsePositiveInt(value: string | undefined): number | null {
+export function parsePositiveInt(value: string | undefined): number | null {
   if (!value) return null;
   const parsed = parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function parsePositiveBatchInt(value: unknown): number | null {
+export function parsePositiveBatchInt(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "number") {
     return Number.isInteger(value) && value > 0 ? value : null;
@@ -483,13 +501,13 @@ function parsePositiveBatchInt(value: unknown): number | null {
   return null;
 }
 
-function getConfiguredMaxWorkers(extendConfig: Partial<ExtendConfig>): number {
+export function getConfiguredMaxWorkers(extendConfig: Partial<ExtendConfig>): number {
   const envValue = parsePositiveInt(process.env.BAOYU_IMAGE_GEN_MAX_WORKERS);
   const configValue = extendConfig.batch?.max_workers ?? null;
   return Math.max(1, envValue ?? configValue ?? DEFAULT_MAX_WORKERS);
 }
 
-function getConfiguredProviderRateLimits(
+export function getConfiguredProviderRateLimits(
   extendConfig: Partial<ExtendConfig>
 ): Record<Provider, ProviderRateLimit> {
   const configured: Record<Provider, ProviderRateLimit> = {
@@ -498,9 +516,11 @@ function getConfiguredProviderRateLimits(
     openai: { ...DEFAULT_PROVIDER_RATE_LIMITS.openai },
     openrouter: { ...DEFAULT_PROVIDER_RATE_LIMITS.openrouter },
     dashscope: { ...DEFAULT_PROVIDER_RATE_LIMITS.dashscope },
+    jimeng: { ...DEFAULT_PROVIDER_RATE_LIMITS.jimeng },
+    seedream: { ...DEFAULT_PROVIDER_RATE_LIMITS.seedream },
   };
 
-  for (const provider of ["replicate", "google", "openai", "openrouter", "dashscope"] as Provider[]) {
+  for (const provider of ["replicate", "google", "openai", "openrouter", "dashscope", "jimeng", "seedream"] as Provider[]) {
     const envPrefix = `BAOYU_IMAGE_GEN_${provider.toUpperCase()}`;
     const extendLimit = extendConfig.batch?.provider_limits?.[provider];
     configured[provider] = {
@@ -540,14 +560,14 @@ async function readPromptFromStdin(): Promise<string | null> {
   }
 }
 
-function normalizeOutputImagePath(p: string): string {
+export function normalizeOutputImagePath(p: string): string {
   const full = path.resolve(p);
   const ext = path.extname(full);
   if (ext) return full;
   return `${full}.png`;
 }
 
-function detectProvider(args: CliArgs): Provider {
+export function detectProvider(args: CliArgs): Provider {
   if (
     args.referenceImages.length > 0 &&
     args.provider &&
@@ -568,6 +588,8 @@ function detectProvider(args: CliArgs): Provider {
   const hasOpenrouter = !!process.env.OPENROUTER_API_KEY;
   const hasDashscope = !!process.env.DASHSCOPE_API_KEY;
   const hasReplicate = !!process.env.REPLICATE_API_TOKEN;
+  const hasJimeng = !!(process.env.JIMENG_ACCESS_KEY_ID && process.env.JIMENG_SECRET_ACCESS_KEY);
+  const hasSeedream = !!process.env.ARK_API_KEY;
 
   if (args.referenceImages.length > 0) {
     if (hasGoogle) return "google";
@@ -575,7 +597,7 @@ function detectProvider(args: CliArgs): Provider {
     if (hasOpenrouter) return "openrouter";
     if (hasReplicate) return "replicate";
     throw new Error(
-      "Reference images require Google, OpenAI, OpenRouter or Replicate. Set GOOGLE_API_KEY/GEMINI_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, or REPLICATE_API_TOKEN, or remove --ref."
+      "Reference images require Google, OpenAI, OpenRouter, or Replicate. Set GOOGLE_API_KEY/GEMINI_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, or REPLICATE_API_TOKEN, or remove --ref."
     );
   }
 
@@ -585,18 +607,20 @@ function detectProvider(args: CliArgs): Provider {
     hasOpenrouter && "openrouter",
     hasDashscope && "dashscope",
     hasReplicate && "replicate",
+    hasJimeng && "jimeng",
+    hasSeedream && "seedream",
   ].filter(Boolean) as Provider[];
 
   if (available.length === 1) return available[0]!;
   if (available.length > 1) return available[0]!;
 
   throw new Error(
-    "No API key found. Set GOOGLE_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DASHSCOPE_API_KEY, or REPLICATE_API_TOKEN.\n" +
+    "No API key found. Set GOOGLE_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, DASHSCOPE_API_KEY, REPLICATE_API_TOKEN, JIMENG keys, or ARK_API_KEY.\n" +
       "Create ~/.baoyu-skills/.env or <cwd>/.baoyu-skills/.env with your keys."
   );
 }
 
-async function validateReferenceImages(referenceImages: string[]): Promise<void> {
+export async function validateReferenceImages(referenceImages: string[]): Promise<void> {
   for (const refPath of referenceImages) {
     const fullPath = path.resolve(refPath);
     try {
@@ -607,7 +631,7 @@ async function validateReferenceImages(referenceImages: string[]): Promise<void>
   }
 }
 
-function isRetryableGenerationError(error: unknown): boolean {
+export function isRetryableGenerationError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
   const nonRetryableMarkers = [
     "Reference image",
@@ -632,6 +656,8 @@ async function loadProviderModule(provider: Provider): Promise<ProviderModule> {
   if (provider === "dashscope") return (await import("./providers/dashscope")) as ProviderModule;
   if (provider === "replicate") return (await import("./providers/replicate")) as ProviderModule;
   if (provider === "openrouter") return (await import("./providers/openrouter")) as ProviderModule;
+  if (provider === "jimeng") return (await import("./providers/jimeng")) as ProviderModule;
+  if (provider === "seedream") return (await import("./providers/seedream")) as ProviderModule;
   return (await import("./providers/openai")) as ProviderModule;
 }
 
@@ -658,6 +684,8 @@ function getModelForProvider(
     }
     if (provider === "dashscope" && extendConfig.default_model.dashscope) return extendConfig.default_model.dashscope;
     if (provider === "replicate" && extendConfig.default_model.replicate) return extendConfig.default_model.replicate;
+    if (provider === "jimeng" && extendConfig.default_model.jimeng) return extendConfig.default_model.jimeng;
+    if (provider === "seedream" && extendConfig.default_model.seedream) return extendConfig.default_model.seedream;
   }
   return providerModule.getDefaultModel();
 }
@@ -685,7 +713,7 @@ async function prepareSingleTask(args: CliArgs, extendConfig: Partial<ExtendConf
   };
 }
 
-async function loadBatchTasks(batchFilePath: string): Promise<LoadedBatchTasks> {
+export async function loadBatchTasks(batchFilePath: string): Promise<LoadedBatchTasks> {
   const resolvedBatchFilePath = path.resolve(batchFilePath);
   const content = await readFile(resolvedBatchFilePath, "utf8");
   const parsed = JSON.parse(content.replace(/^\uFEFF/, "")) as BatchFile;
@@ -711,11 +739,11 @@ async function loadBatchTasks(batchFilePath: string): Promise<LoadedBatchTasks> 
   throw new Error("Invalid batch file. Expected an array of tasks or an object with a tasks array.");
 }
 
-function resolveBatchPath(batchDir: string, filePath: string): string {
+export function resolveBatchPath(batchDir: string, filePath: string): string {
   return path.isAbsolute(filePath) ? filePath : path.resolve(batchDir, filePath);
 }
 
-function createTaskArgs(baseArgs: CliArgs, task: BatchTaskInput, batchDir: string): CliArgs {
+export function createTaskArgs(baseArgs: CliArgs, task: BatchTaskInput, batchDir: string): CliArgs {
   return {
     ...baseArgs,
     prompt: task.prompt ?? null,
@@ -854,7 +882,7 @@ function createProviderGate(providerRateLimits: Record<Provider, ProviderRateLim
   };
 }
 
-function getWorkerCount(taskCount: number, jobs: number | null, maxWorkers: number): number {
+export function getWorkerCount(taskCount: number, jobs: number | null, maxWorkers: number): number {
   const requested = jobs ?? Math.min(taskCount, maxWorkers);
   return Math.max(1, Math.min(requested, taskCount, maxWorkers));
 }
@@ -873,7 +901,7 @@ async function runBatchTasks(
   const acquireProvider = createProviderGate(providerRateLimits);
   const workerCount = getWorkerCount(tasks.length, jobs, maxWorkers);
   console.error(`Batch mode: ${tasks.length} tasks, ${workerCount} workers, parallel mode enabled.`);
-  for (const provider of ["replicate", "google", "openai", "dashscope"] as Provider[]) {
+  for (const provider of ["replicate", "google", "openai", "openrouter", "dashscope", "jimeng", "seedream"] as Provider[]) {
     const limit = providerRateLimits[provider];
     console.error(`- ${provider}: concurrency=${limit.concurrency}, startIntervalMs=${limit.startIntervalMs}`);
   }
@@ -984,8 +1012,21 @@ async function main(): Promise<void> {
   await runSingleMode(mergedArgs, extendConfig);
 }
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exit(1);
-});
+function isDirectExecution(metaUrl: string): boolean {
+  const entryPath = process.argv[1];
+  if (!entryPath) return false;
+
+  try {
+    return path.resolve(entryPath) === fileURLToPath(metaUrl);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectExecution(import.meta.url)) {
+  main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    process.exit(1);
+  });
+}

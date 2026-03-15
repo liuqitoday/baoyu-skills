@@ -2,6 +2,40 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.67.0 - 2026-03-13
+
+### 新功能
+- `baoyu-image-gen`：新增 DashScope qwen-image-2.0-pro 模型支持，支持自由尺寸和文字渲染 (by @JianJang2017)
+
+## 1.66.1 - 2026-03-13
+
+### 测试
+- 将测试文件从集中式 `tests/` 目录迁移至与源码同级
+- 将测试从 `.mjs` 转换为 TypeScript（`.test.ts`），使用 `tsx` 运行器
+- 新增 npm workspaces 配置，CI 工作流添加 npm 缓存
+
+## 1.66.0 - 2026-03-13
+
+### 新功能
+- `baoyu-image-gen`：新增即梦（Jimeng）和豆包（Seedream）图像生成服务商 (by @lindaifeng)
+
+### 修复
+- `baoyu-image-gen`：收紧即梦服务商行为
+
+### 重构
+- `baoyu-image-gen`：导出函数以支持测试，新增模块入口守卫
+
+### 文档
+- `baoyu-image-gen`：在 SKILL.md 和 README 中添加即梦和豆包服务商文档
+
+### 测试
+- 新增测试基础设施，包含 CI 工作流和 image-gen 单元测试
+
+## 1.65.1 - 2026-03-13
+
+### 重构
+- `baoyu-translate`：将 chunk 解析从 remark/unified 替换为 markdown-it，新增 main.ts CLI 入口
+
 ## 1.65.0 - 2026-03-13
 
 ### 新功能

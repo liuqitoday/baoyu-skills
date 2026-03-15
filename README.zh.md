@@ -665,7 +665,7 @@ AI 驱动的生成后端。
 
 #### baoyu-image-gen
 
-基于 AI SDK 的图像生成，支持 OpenAI、Google、OpenRouter、DashScope（阿里通义万相）和 Replicate API。支持文生图、参考图、宽高比和质量预设。
+基于 AI SDK 的图像生成，支持 OpenAI、Google、OpenRouter、DashScope（阿里通义万相）、即梦（Jimeng）、豆包（Seedream）和 Replicate API。支持文生图、参考图、宽高比和质量预设。
 
 ```bash
 # 基础生成（自动检测服务商）
@@ -689,6 +689,12 @@ AI 驱动的生成后端。
 # Replicate
 /baoyu-image-gen --prompt "一只猫" --image cat.png --provider replicate
 
+# 即梦（Jimeng）
+/baoyu-image-gen --prompt "一只可爱的猫" --image cat.png --provider jimeng
+
+# 豆包（Seedream）
+/baoyu-image-gen --prompt "一只可爱的猫" --image cat.png --provider seedream
+
 # 带参考图（Google、OpenAI、OpenRouter 或 Replicate）
 /baoyu-image-gen --prompt "把它变成蓝色" --image out.png --ref source.png
 ```
@@ -699,7 +705,7 @@ AI 驱动的生成后端。
 | `--prompt`, `-p` | 提示词文本 |
 | `--promptfiles` | 从文件读取提示词（多文件拼接） |
 | `--image` | 输出图片路径（必需） |
-| `--provider` | `google`、`openai`、`openrouter`、`dashscope` 或 `replicate`（默认：自动检测，优先 google） |
+| `--provider` | `google`、`openai`、`openrouter`、`dashscope`、`jimeng`、`seedream` 或 `replicate`（默认：自动检测，优先 google） |
 | `--model`, `-m` | 模型 ID |
 | `--ar` | 宽高比（如 `16:9`、`1:1`、`4:3`） |
 | `--size` | 尺寸（如 `1024x1024`） |
@@ -714,16 +720,24 @@ AI 驱动的生成后端。
 | `GOOGLE_API_KEY` | Google API 密钥 | - |
 | `DASHSCOPE_API_KEY` | DashScope API 密钥（阿里云） | - |
 | `REPLICATE_API_TOKEN` | Replicate API Token | - |
+| `JIMENG_ACCESS_KEY_ID` | 即梦火山引擎 Access Key | - |
+| `JIMENG_SECRET_ACCESS_KEY` | 即梦火山引擎 Secret Key | - |
+| `ARK_API_KEY` | 豆包火山引擎 ARK API 密钥 | - |
 | `OPENAI_IMAGE_MODEL` | OpenAI 模型 | `gpt-image-1.5` |
 | `OPENROUTER_IMAGE_MODEL` | OpenRouter 模型 | `google/gemini-3.1-flash-image-preview` |
 | `GOOGLE_IMAGE_MODEL` | Google 模型 | `gemini-3-pro-image-preview` |
-| `DASHSCOPE_IMAGE_MODEL` | DashScope 模型 | `z-image-turbo` |
+| `DASHSCOPE_IMAGE_MODEL` | DashScope 模型 | `qwen-image-2.0-pro` |
 | `REPLICATE_IMAGE_MODEL` | Replicate 模型 | `google/nano-banana-pro` |
+| `JIMENG_IMAGE_MODEL` | 即梦模型 | `jimeng_t2i_v40` |
+| `SEEDREAM_IMAGE_MODEL` | 豆包模型 | `doubao-seedream-5-0-260128` |
 | `OPENAI_BASE_URL` | 自定义 OpenAI 端点 | - |
 | `OPENROUTER_BASE_URL` | 自定义 OpenRouter 端点 | `https://openrouter.ai/api/v1` |
 | `GOOGLE_BASE_URL` | 自定义 Google 端点 | - |
 | `DASHSCOPE_BASE_URL` | 自定义 DashScope 端点 | - |
 | `REPLICATE_BASE_URL` | 自定义 Replicate 端点 | - |
+| `JIMENG_BASE_URL` | 自定义即梦端点 | `https://visual.volcengineapi.com` |
+| `JIMENG_REGION` | 即梦区域 | `cn-north-1` |
+| `SEEDREAM_BASE_URL` | 自定义豆包端点 | `https://ark.cn-beijing.volces.com/api/v3` |
 
 **服务商自动选择**：
 1. 如果指定了 `--provider` → 使用指定的
@@ -982,13 +996,25 @@ GOOGLE_IMAGE_MODEL=gemini-3-pro-image-preview
 
 # DashScope（阿里通义万相）
 DASHSCOPE_API_KEY=sk-xxx
-DASHSCOPE_IMAGE_MODEL=z-image-turbo
+DASHSCOPE_IMAGE_MODEL=qwen-image-2.0-pro
 # DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/api/v1
 
 # Replicate
 REPLICATE_API_TOKEN=r8_xxx
 REPLICATE_IMAGE_MODEL=google/nano-banana-pro
 # REPLICATE_BASE_URL=https://api.replicate.com
+
+# 即梦（Jimeng）
+JIMENG_ACCESS_KEY_ID=xxx
+JIMENG_SECRET_ACCESS_KEY=xxx
+JIMENG_IMAGE_MODEL=jimeng_t2i_v40
+# JIMENG_BASE_URL=https://visual.volcengineapi.com
+# JIMENG_REGION=cn-north-1
+
+# 豆包（Seedream）
+ARK_API_KEY=xxx
+SEEDREAM_IMAGE_MODEL=doubao-seedream-5-0-260128
+# SEEDREAM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 EOF
 ```
 
