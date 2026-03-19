@@ -234,6 +234,9 @@ export function buildRequestBody(
     ],
     modalities: ["image", "text"],
     image_config: imageConfig,
+    provider: {
+      require_parameters: true,
+    },
     stream: false,
   };
 }

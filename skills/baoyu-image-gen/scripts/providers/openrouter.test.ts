@@ -39,6 +39,9 @@ test("OpenRouter request body uses image_config and string content for text-only
     image_size: "2K",
     aspect_ratio: "16:9",
   });
+  assert.deepEqual(body.provider, {
+    require_parameters: true,
+  });
   assert.equal(body.stream, false);
   assert.equal(body.messages[0].content, "hello");
 });
