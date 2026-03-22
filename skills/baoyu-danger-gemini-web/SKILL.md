@@ -139,6 +139,10 @@ ${BUN_X} {baseDir}/scripts/main.ts "Hello" --json
 
 First run opens browser for Google auth. Cookies cached automatically.
 
+When no explicit profile dir is set, cookie refresh may reuse an already-running local Chrome/Chromium debugging session tied to a standard user-data dir.
+Set `--profile-dir` or `GEMINI_WEB_CHROME_PROFILE_DIR` to force a dedicated profile and skip existing-session reuse.
+This is a best-effort CDP session reuse path, not the Chrome DevTools MCP prompt-based `--autoConnect` flow described in Chrome's official docs.
+
 Supported browsers (auto-detected): Chrome, Chrome Canary/Beta, Chromium, Edge.
 
 Force refresh: `--login` flag. Override browser: `GEMINI_WEB_CHROME_PATH` env var.

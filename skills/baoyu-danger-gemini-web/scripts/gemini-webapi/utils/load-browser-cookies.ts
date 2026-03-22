@@ -2,6 +2,7 @@ import process from 'node:process';
 
 import {
   CdpConnection,
+  discoverRunningChromeDebugPort,
   findChromeExecutable as findChromeExecutableBase,
   findExistingChromeDebugPort,
   getFreePort,
@@ -97,6 +98,87 @@ async function is_gemini_session_ready(cookies: CookieMap, verbose: boolean): Pr
   }
 }
 
+async function fetch_cookies_from_existing_chrome(
+  timeoutMs: number,
+  verbose: boolean,
+): Promise<CookieMap | null> {
+  const discovered = await discoverRunningChromeDebugPort();
+  if (discovered === null) return null;
+
+  if (verbose) logger.info(`Found reusable Chrome debugging session on port ${discovered.port}. Connecting via WebSocket...`);
+
+  let cdp: CdpConnection | null = null;
+  let targetId: string | null = null;
+  let createdTarget = false;
+  try {
+    const connectStart = Date.now();
+    const connectTimeout = 30_000;
+    let lastConnErr: unknown = null;
+    while (Date.now() - connectStart < connectTimeout) {
+      try {
+        cdp = await CdpConnection.connect(discovered.wsUrl, 5_000);
+        break;
+      } catch (e) {
+        lastConnErr = e;
+        if (verbose) logger.debug(`WebSocket connect attempt failed: ${e instanceof Error ? e.message : String(e)}, retrying...`);
+        await sleep(1000);
+      }
+    }
+    if (!cdp) {
+      if (verbose) logger.debug(`Could not connect to Chrome after ${connectTimeout / 1000}s: ${lastConnErr instanceof Error ? lastConnErr.message : String(lastConnErr)}`);
+      return null;
+    }
+
+    const page = await openPageSession({
+      cdp,
+      reusing: false,
+      url: GEMINI_APP_URL,
+      matchTarget: (target) => target.type === 'page' && target.url.includes('gemini.google.com'),
+      enableNetwork: true,
+      activateTarget: false,
+    });
+    const { sessionId } = page;
+    targetId = page.targetId;
+    createdTarget = page.createdTarget;
+
+    if (verbose) logger.debug(createdTarget ? 'No Gemini tab found, creating new tab...' : 'Found existing Gemini tab, attaching...');
+
+    const start = Date.now();
+    let last: CookieMap = {};
+
+    while (Date.now() - start < timeoutMs) {
+      const { cookies } = await cdp.send<{ cookies: Array<{ name: string; value: string }> }>(
+        'Network.getCookies',
+        { urls: ['https://gemini.google.com/', 'https://accounts.google.com/', 'https://www.google.com/'] },
+        { sessionId, timeoutMs: 10_000 },
+      );
+
+      const cookieMap: CookieMap = {};
+      for (const cookie of cookies) {
+        if (cookie?.name && typeof cookie.value === 'string') cookieMap[cookie.name] = cookie.value;
+      }
+
+      last = cookieMap;
+      if (await is_gemini_session_ready(cookieMap, verbose)) return cookieMap;
+
+      await sleep(1000);
+    }
+
+    if (verbose) logger.debug(`Existing Chrome did not yield valid cookies. Last keys: ${Object.keys(last).join(', ')}`);
+    return null;
+  } catch (e) {
+    if (verbose) logger.debug(`Failed to connect to existing Chrome debugging session: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  } finally {
+    if (cdp) {
+      if (createdTarget && targetId) {
+        try { await cdp.send('Target.closeTarget', { targetId }, { timeoutMs: 5_000 }); } catch {}
+      }
+      cdp.close();
+    }
+  }
+}
+
 async function fetch_google_cookies_via_cdp(
   profileDir: string,
   timeoutMs: number,
@@ -176,6 +258,19 @@ export async function load_browser_cookies(domain_name: string = '', verbose: bo
   if (!force) {
     const cached = await read_cookie_file();
     if (cached) return { chrome: cached };
+  }
+
+  const hasExplicitProfile = !!(process.env.GEMINI_WEB_CHROME_PROFILE_DIR?.trim() || process.env.BAOYU_CHROME_PROFILE_DIR?.trim());
+  const existingCookies = hasExplicitProfile ? null : await fetch_cookies_from_existing_chrome(30_000, verbose);
+  if (existingCookies) {
+    const filtered: CookieMap = {};
+    for (const [key, value] of Object.entries(existingCookies)) {
+      if (typeof value === 'string' && value.length > 0) filtered[key] = value;
+    }
+
+    await write_cookie_file(filtered, resolveGeminiWebCookiePath(), 'cdp-existing');
+    void domain_name;
+    return { chrome: filtered };
   }
 
   const profileDir = process.env.GEMINI_WEB_CHROME_PROFILE_DIR?.trim() || resolveGeminiWebChromeProfileDir();

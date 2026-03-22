@@ -202,6 +202,13 @@ function toHighResUrl(rawUrl: string): string {
   }
 }
 
+function isPlausibleMediaUrl(rawUrl: string): boolean {
+  const ext = resolveExtensionFromUrl(rawUrl);
+  if (ext && (IMAGE_EXTENSIONS.has(ext) || VIDEO_EXTENSIONS.has(ext))) return true;
+  if (resolveKindFromHostname(rawUrl) !== undefined) return true;
+  return false;
+}
+
 function collectMarkdownLinkCandidates(markdown: string): MarkdownLinkCandidate[] {
   const candidates: MarkdownLinkCandidate[] = [];
   const seen = new Set<string>();
@@ -221,10 +228,12 @@ function collectMarkdownLinkCandidates(markdown: string): MarkdownLinkCandidate[
     const label = match[1] ?? "";
     const rawUrl = match[3] ?? "";
     if (!rawUrl || seen.has(rawUrl)) continue;
+    const isImage = label.startsWith("![");
+    if (!isImage && !isPlausibleMediaUrl(rawUrl)) continue;
     seen.add(rawUrl);
     candidates.push({
       url: rawUrl,
-      hint: label.startsWith("![") ? "image" : "unknown",
+      hint: isImage ? "image" : "unknown",
     });
   }
 

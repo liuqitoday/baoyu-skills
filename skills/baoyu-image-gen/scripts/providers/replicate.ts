@@ -20,7 +20,7 @@ function getBaseUrl(): string {
   return base.replace(/\/+$/g, "");
 }
 
-function parseModelId(model: string): { owner: string; name: string; version: string | null } {
+export function parseModelId(model: string): { owner: string; name: string; version: string | null } {
   const [ownerName, version] = model.split(":");
   const parts = ownerName!.split("/");
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
@@ -31,7 +31,7 @@ function parseModelId(model: string): { owner: string; name: string; version: st
   return { owner: parts[0], name: parts[1], version: version || null };
 }
 
-function buildInput(prompt: string, args: CliArgs, referenceImages: string[]): Record<string, unknown> {
+export function buildInput(prompt: string, args: CliArgs, referenceImages: string[]): Record<string, unknown> {
   const input: Record<string, unknown> = { prompt };
 
   if (args.aspectRatio) {
@@ -144,7 +144,7 @@ async function pollPrediction(apiToken: string, getUrl: string): Promise<Predict
   throw new Error(`Replicate prediction timed out after ${MAX_POLL_MS / 1000}s`);
 }
 
-function extractOutputUrl(prediction: PredictionResponse): string {
+export function extractOutputUrl(prediction: PredictionResponse): string {
   const output = prediction.output;
 
   if (typeof output === "string") return output;

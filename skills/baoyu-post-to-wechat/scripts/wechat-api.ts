@@ -3,6 +3,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { loadWechatExtendConfig, resolveAccount, loadCredentials } from "./wechat-extend-config.ts";
+import {
+  type WechatUploadAsset,
+  prepareWechatBodyImageUpload,
+  needsWechatBodyImageProcessing,
+} from "./wechat-image-processor.ts";
 
 interface AccessTokenResponse {
   access_token?: string;
@@ -52,9 +57,9 @@ interface ArticleOptions {
 }
 
 const TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token";
-const UPLOAD_URL = "https://api.weixin.qq.com/cgi-bin/material/add_material";
+const UPLOAD_BODY_IMG_URL = "https://api.weixin.qq.com/cgi-bin/media/uploadimg";
+const UPLOAD_MATERIAL_URL = "https://api.weixin.qq.com/cgi-bin/material/add_material";
 const DRAFT_URL = "https://api.weixin.qq.com/cgi-bin/draft/add";
-
 
 async function fetchAccessToken(appId: string, appSecret: string): Promise<string> {
   const url = `${TOKEN_URL}?grant_type=client_credential&appid=${appId}&secret=${appSecret}`;
@@ -72,14 +77,20 @@ async function fetchAccessToken(appId: string, appSecret: string): Promise<strin
   return data.access_token;
 }
 
-async function uploadImage(
+function toHttpsUrl(url: string | undefined): string {
+  if (!url) return "";
+  return url.startsWith("http://") ? url.replace(/^http:\/\//i, "https://") : url;
+}
+
+async function loadUploadAsset(
   imagePath: string,
-  accessToken: string,
-  baseDir?: string
-): Promise<UploadResponse> {
+  baseDir?: string,
+): Promise<WechatUploadAsset> {
   let fileBuffer: Buffer;
   let filename: string;
   let contentType: string;
+  let fileSize = 0;
+  let fileExt = "";
 
   if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
     const response = await fetch(imagePath);
@@ -91,8 +102,10 @@ async function uploadImage(
       throw new Error(`Remote image is empty: ${imagePath}`);
     }
     fileBuffer = Buffer.from(buffer);
+    fileSize = buffer.byteLength;
     const urlPath = imagePath.split("?")[0];
     filename = path.basename(urlPath) || "image.jpg";
+    fileExt = path.extname(filename).toLowerCase();
     contentType = response.headers.get("content-type") || "image/jpeg";
   } else {
     const resolvedPath = path.isAbsolute(imagePath)
@@ -106,19 +119,85 @@ async function uploadImage(
     if (stats.size === 0) {
       throw new Error(`Local image is empty: ${resolvedPath}`);
     }
+    fileSize = stats.size;
     fileBuffer = fs.readFileSync(resolvedPath);
     filename = path.basename(resolvedPath);
-    const ext = path.extname(filename).toLowerCase();
+    fileExt = path.extname(filename).toLowerCase();
     const mimeTypes: Record<string, string> = {
       ".jpg": "image/jpeg",
       ".jpeg": "image/jpeg",
       ".png": "image/png",
       ".gif": "image/gif",
       ".webp": "image/webp",
+      ".bmp": "image/bmp",
+      ".tiff": "image/tiff",
+      ".tif": "image/tiff",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon",
     };
-    contentType = mimeTypes[ext] || "image/jpeg";
+    contentType = mimeTypes[fileExt] || "image/jpeg";
   }
 
+  return {
+    buffer: fileBuffer,
+    filename,
+    contentType,
+    fileExt,
+    fileSize,
+  };
+}
+
+async function uploadImage(
+  imagePath: string,
+  accessToken: string,
+  baseDir?: string,
+  uploadType: "body" | "material" = "body"
+): Promise<UploadResponse> {
+  const asset = await loadUploadAsset(imagePath, baseDir);
+  let uploadAsset = asset;
+
+  if (uploadType === "body" && needsWechatBodyImageProcessing(asset)) {
+    const prepared = await prepareWechatBodyImageUpload(asset);
+    uploadAsset = {
+      ...asset,
+      buffer: prepared.buffer,
+      filename: prepared.filename,
+      contentType: prepared.contentType,
+      fileExt: path.extname(prepared.filename).toLowerCase(),
+      fileSize: prepared.buffer.length,
+    };
+    const note = prepared.processingNotes.join(", ");
+    console.error(`[wechat-api] Processed ${asset.filename} for body upload: ${note}`);
+  }
+
+  const result = await uploadToWechat(
+    uploadAsset.buffer,
+    uploadAsset.filename,
+    uploadAsset.contentType,
+    accessToken,
+    uploadType,
+  );
+
+  // media/uploadimg 接口只返回 URL，material/add_material 返回 media_id
+  if (uploadType === "body") {
+    return {
+      url: toHttpsUrl(result.url),
+      media_id: "",
+    } as UploadResponse;
+  } else {
+    result.url = toHttpsUrl(result.url);
+    return result;
+  }
+}
+
+// 实际的微信上传函数
+async function uploadToWechat(
+  fileBuffer: Buffer,
+  filename: string,
+  contentType: string,
+  accessToken: string,
+  uploadType: "body" | "material"
+): Promise<UploadResponse> {
   const boundary = `----WebKitFormBoundary${Date.now().toString(16)}`;
   const header = [
     `--${boundary}`,
@@ -133,7 +212,8 @@ async function uploadImage(
   const footerBuffer = Buffer.from(footer, "utf-8");
   const body = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
 
-  const url = `${UPLOAD_URL}?access_token=${accessToken}&type=image`;
+  const uploadUrl = uploadType === "body" ? UPLOAD_BODY_IMG_URL : UPLOAD_MATERIAL_URL;
+  const url = `${uploadUrl}?type=image&access_token=${accessToken}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -147,10 +227,6 @@ async function uploadImage(
     throw new Error(`Upload failed ${data.errcode}: ${data.errmsg}`);
   }
 
-  if (data.url?.startsWith("http://")) {
-    data.url = data.url.replace(/^http:\/\//i, "https://");
-  }
-
   return data;
 }
 
@@ -159,17 +235,19 @@ async function uploadImagesInHtml(
   accessToken: string,
   baseDir: string,
   contentImages: ImageInfo[] = [],
-): Promise<{ html: string; firstMediaId: string; allMediaIds: string[] }> {
+  articleType: ArticleType = "news",
+  collectNewsCoverFallback: boolean = false,
+): Promise<{ html: string; firstCoverMediaId: string; imageMediaIds: string[] }> {
   const imgRegex = /<img[^>]*\ssrc=["']([^"']+)["'][^>]*>/gi;
   const matches = [...html.matchAll(imgRegex)];
 
   if (matches.length === 0 && contentImages.length === 0) {
-    return { html, firstMediaId: "", allMediaIds: [] };
+    return { html, firstCoverMediaId: "", imageMediaIds: [] };
   }
 
-  let firstMediaId = "";
+  let firstCoverMediaId = "";
   let updatedHtml = html;
-  const allMediaIds: string[] = [];
+  const imageMediaIds: string[] = [];
   const uploadedBySource = new Map<string, UploadResponse>();
 
   for (const match of matches) {
@@ -177,8 +255,13 @@ async function uploadImagesInHtml(
     if (!src) continue;
 
     if (src.startsWith("https://mmbiz.qpic.cn")) {
-      if (!firstMediaId) {
-        firstMediaId = src;
+      if (collectNewsCoverFallback && !firstCoverMediaId) {
+        try {
+          const coverResp = await uploadImage(src, accessToken, baseDir, "material");
+          firstCoverMediaId = coverResp.media_id;
+        } catch (err) {
+          console.error(`[wechat-api] Failed to reuse existing WeChat image as cover: ${src}`, err);
+        }
       }
       continue;
     }
@@ -186,20 +269,31 @@ async function uploadImagesInHtml(
     const localPathMatch = fullTag.match(/data-local-path=["']([^"']+)["']/);
     const imagePath = localPathMatch ? localPathMatch[1]! : src;
 
-    console.error(`[wechat-api] Uploading image: ${imagePath}`);
+    console.error(`[wechat-api] Uploading body image: ${imagePath}`);
     try {
       let resp = uploadedBySource.get(imagePath);
       if (!resp) {
-        resp = await uploadImage(imagePath, accessToken, baseDir);
+        // 正文图片使用 media/uploadimg 接口获取 URL
+        resp = await uploadImage(imagePath, accessToken, baseDir, "body");
         uploadedBySource.set(imagePath, resp);
       }
       const newTag = fullTag
         .replace(/\ssrc=["'][^"']+["']/, ` src="${resp.url}"`)
         .replace(/\sdata-local-path=["'][^"']+["']/, "");
       updatedHtml = updatedHtml.replace(fullTag, newTag);
-      allMediaIds.push(resp.media_id);
-      if (!firstMediaId) {
-        firstMediaId = resp.media_id;
+      const shouldUploadMaterial = articleType === "newspic" || (collectNewsCoverFallback && !firstCoverMediaId);
+      if (shouldUploadMaterial) {
+        let materialResp = uploadedBySource.get(`${imagePath}:material`);
+        if (!materialResp) {
+          materialResp = await uploadImage(imagePath, accessToken, baseDir, "material");
+          uploadedBySource.set(`${imagePath}:material`, materialResp);
+        }
+        if (articleType === "newspic" && materialResp.media_id) {
+          imageMediaIds.push(materialResp.media_id);
+        }
+        if (collectNewsCoverFallback && !firstCoverMediaId && materialResp.media_id) {
+          firstCoverMediaId = materialResp.media_id;
+        }
       }
     } catch (err) {
       console.error(`[wechat-api] Failed to upload ${imagePath}:`, err);
@@ -210,27 +304,38 @@ async function uploadImagesInHtml(
     if (!updatedHtml.includes(image.placeholder)) continue;
 
     const imagePath = image.localPath || image.originalPath;
-    console.error(`[wechat-api] Uploading placeholder image: ${imagePath}`);
+    console.error(`[wechat-api] Uploading body image: ${imagePath}`);
 
     try {
       let resp = uploadedBySource.get(imagePath);
       if (!resp) {
-        resp = await uploadImage(imagePath, accessToken, baseDir);
+        // 正文图片使用 media/uploadimg 接口获取 URL
+        resp = await uploadImage(imagePath, accessToken, baseDir, "body");
         uploadedBySource.set(imagePath, resp);
       }
 
       const replacementTag = `<img src="${resp.url}" style="display: block; width: 100%; margin: 1.5em auto;">`;
       updatedHtml = replaceAllPlaceholders(updatedHtml, image.placeholder, replacementTag);
-      allMediaIds.push(resp.media_id);
-      if (!firstMediaId) {
-        firstMediaId = resp.media_id;
+      const shouldUploadMaterial = articleType === "newspic" || (collectNewsCoverFallback && !firstCoverMediaId);
+      if (shouldUploadMaterial) {
+        let materialResp = uploadedBySource.get(`${imagePath}:material`);
+        if (!materialResp) {
+          materialResp = await uploadImage(imagePath, accessToken, baseDir, "material");
+          uploadedBySource.set(`${imagePath}:material`, materialResp);
+        }
+        if (articleType === "newspic" && materialResp.media_id) {
+          imageMediaIds.push(materialResp.media_id);
+        }
+        if (collectNewsCoverFallback && !firstCoverMediaId && materialResp.media_id) {
+          firstCoverMediaId = materialResp.media_id;
+        }
       }
     } catch (err) {
       console.error(`[wechat-api] Failed to upload placeholder ${image.placeholder}:`, err);
     }
   }
 
-  return { html: updatedHtml, firstMediaId, allMediaIds };
+  return { html: updatedHtml, firstCoverMediaId, imageMediaIds };
 }
 
 async function publishToDraft(
@@ -345,7 +450,7 @@ function renderMarkdownWithPlaceholders(
 
 function replaceAllPlaceholders(html: string, placeholder: string, replacement: string): string {
   const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return html.replace(new RegExp(escapedPlaceholder, "g"), replacement);
+  return html.replace(new RegExp(escapedPlaceholder + "(?!\\d)", "g"), replacement);
 }
 
 function extractHtmlContent(htmlPath: string): string {
@@ -592,16 +697,6 @@ async function main(): Promise<void> {
   console.error("[wechat-api] Fetching access token...");
   const accessToken = await fetchAccessToken(creds.appId, creds.appSecret);
 
-  console.error("[wechat-api] Uploading images...");
-  const { html: processedHtml, firstMediaId, allMediaIds } = await uploadImagesInHtml(
-    htmlContent,
-    accessToken,
-    baseDir,
-    contentImages,
-  );
-  htmlContent = processedHtml;
-
-  let thumbMediaId = "";
   const rawCoverPath = args.cover ||
     frontmatter.coverImage ||
     frontmatter.featureImage ||
@@ -610,19 +705,31 @@ async function main(): Promise<void> {
   const coverPath = rawCoverPath && !path.isAbsolute(rawCoverPath) && args.cover
     ? path.resolve(process.cwd(), rawCoverPath)
     : rawCoverPath;
+  const needNewsCoverFallback = args.articleType === "news" && !coverPath;
+
+  console.error("[wechat-api] Uploading body images...");
+  const { html: processedHtml, firstCoverMediaId, imageMediaIds } = await uploadImagesInHtml(
+    htmlContent,
+    accessToken,
+    baseDir,
+    contentImages,
+    args.articleType,
+    needNewsCoverFallback,
+  );
+  htmlContent = processedHtml;
+
+  let thumbMediaId = "";
 
   if (coverPath) {
     console.error(`[wechat-api] Uploading cover: ${coverPath}`);
-    const coverResp = await uploadImage(coverPath, accessToken, baseDir);
+    // 封面图片使用 material/add_material 接口
+    const coverResp = await uploadImage(coverPath, accessToken, baseDir, "material");
     thumbMediaId = coverResp.media_id;
-  } else if (firstMediaId) {
-    if (firstMediaId.startsWith("https://")) {
-      console.error(`[wechat-api] Uploading first image as cover: ${firstMediaId}`);
-      const coverResp = await uploadImage(firstMediaId, accessToken, baseDir);
-      thumbMediaId = coverResp.media_id;
-    } else {
-      thumbMediaId = firstMediaId;
-    }
+    console.error(`[wechat-api] Cover uploaded successfully, media_id: ${thumbMediaId}`);
+  } else if (firstCoverMediaId && args.articleType === "news") {
+    // news 类型没有封面时，使用第一张正文图的 media_id 作为封面（兜底逻辑）
+    thumbMediaId = firstCoverMediaId;
+    console.error(`[wechat-api] Using first body image as cover (fallback), media_id: ${thumbMediaId}`);
   }
 
   if (args.articleType === "news" && !thumbMediaId) {
@@ -630,7 +737,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (args.articleType === "newspic" && allMediaIds.length === 0) {
+  if (args.articleType === "newspic" && imageMediaIds.length === 0) {
     console.error("Error: newspic requires at least one image in content.");
     process.exit(1);
   }
@@ -643,7 +750,7 @@ async function main(): Promise<void> {
     content: htmlContent,
     thumbMediaId,
     articleType: args.articleType,
-    imageMediaIds: args.articleType === "newspic" ? allMediaIds : undefined,
+    imageMediaIds: args.articleType === "newspic" ? imageMediaIds : undefined,
     needOpenComment: resolved.need_open_comment,
     onlyFansCanComment: resolved.only_fans_can_comment,
   }, accessToken);

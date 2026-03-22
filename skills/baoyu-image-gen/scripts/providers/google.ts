@@ -17,16 +17,16 @@ export function getDefaultModel(): string {
   return process.env.GOOGLE_IMAGE_MODEL || "gemini-3-pro-image-preview";
 }
 
-function normalizeGoogleModelId(model: string): string {
+export function normalizeGoogleModelId(model: string): string {
   return model.startsWith("models/") ? model.slice("models/".length) : model;
 }
 
-function isGoogleMultimodal(model: string): boolean {
+export function isGoogleMultimodal(model: string): boolean {
   const normalized = normalizeGoogleModelId(model);
   return GOOGLE_MULTIMODAL_MODELS.some((m) => normalized.includes(m));
 }
 
-function isGoogleImagen(model: string): boolean {
+export function isGoogleImagen(model: string): boolean {
   const normalized = normalizeGoogleModelId(model);
   return GOOGLE_IMAGEN_MODELS.some((m) => normalized.includes(m));
 }
@@ -35,7 +35,7 @@ function getGoogleApiKey(): string | null {
   return process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || null;
 }
 
-function getGoogleImageSize(args: CliArgs): "1K" | "2K" | "4K" {
+export function getGoogleImageSize(args: CliArgs): "1K" | "2K" | "4K" {
   if (args.imageSize) return args.imageSize as "1K" | "2K" | "4K";
   return args.quality === "2k" ? "2K" : "1K";
 }
@@ -46,7 +46,7 @@ function getGoogleBaseUrl(): string {
   return base.replace(/\/+$/g, "");
 }
 
-function buildGoogleUrl(pathname: string): string {
+export function buildGoogleUrl(pathname: string): string {
   const base = getGoogleBaseUrl();
   const cleanedPath = pathname.replace(/^\/+/g, "");
   if (base.endsWith("/v1beta")) return `${base}/${cleanedPath}`;
@@ -162,7 +162,7 @@ async function postGoogleJson<T>(pathname: string, body: unknown): Promise<T> {
   return postGoogleJsonViaFetch<T>(url, apiKey, body);
 }
 
-function buildPromptWithAspect(
+export function buildPromptWithAspect(
   prompt: string,
   ar: string | null,
   quality: CliArgs["quality"],
@@ -177,7 +177,7 @@ function buildPromptWithAspect(
   return result;
 }
 
-function addAspectRatioToPrompt(prompt: string, ar: string | null): string {
+export function addAspectRatioToPrompt(prompt: string, ar: string | null): string {
   if (!ar) return prompt;
   return `${prompt} Aspect ratio: ${ar}.`;
 }
@@ -194,7 +194,7 @@ async function readImageAsBase64(
   return { data: buf.toString("base64"), mimeType };
 }
 
-function extractInlineImageData(response: {
+export function extractInlineImageData(response: {
   candidates?: Array<{
     content?: { parts?: Array<{ inlineData?: { data?: string } }> };
   }>;
@@ -208,7 +208,7 @@ function extractInlineImageData(response: {
   return null;
 }
 
-function extractPredictedImageData(response: {
+export function extractPredictedImageData(response: {
   predictions?: Array<any>;
   generatedImages?: Array<any>;
 }): string | null {

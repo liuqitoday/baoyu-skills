@@ -83,11 +83,16 @@ Full library: [references/visual-elements.md](visual-elements.md)
 
 ### Character Handling
 
-When people are needed:
+**Default (no reference with people)**:
 - Use simplified silhouettes or abstract stick figures
 - Symbolic representations (head + shoulders outline)
 - NO realistic faces, detailed anatomy, or photographic representations
 - Cartoon/icon style consistent with rendering choice
+
+**When reference images contain people**:
+- Reference image is passed to model (`usage: direct`) — model must visually reference it to preserve character likeness
+- Stylize to match chosen rendering (cartoon/vector), preserving distinctive features (hair, clothing, pose)
+- NEVER photorealistic
 
 ## Mood Application
 

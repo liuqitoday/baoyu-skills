@@ -21,7 +21,8 @@ Scripts in `scripts/` subdirectory. `{baseDir}` = this SKILL.md's directory path
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/chunk.ts` | Split markdown into chunks by AST blocks (sections, headings, paragraphs), with line/word fallback for oversized blocks. Use `--output-dir <dir>` to write chunks into `<dir>/chunks/` instead of `<source-dir>/chunks/` |
+| `scripts/main.ts` | CLI entry point. Default action splits markdown into chunks; also supports explicit `chunk` subcommand |
+| `scripts/chunk.ts` | Markdown chunking implementation used by `main.ts` and kept compatible for direct invocation |
 
 ## Preferences (EXTEND.md)
 
@@ -183,8 +184,8 @@ Before translating chunks:
 
 1. **Extract terminology**: Scan entire document for proper nouns, technical terms, recurring phrases
 2. **Build session glossary**: Merge extracted terms with loaded glossaries, establish consistent translations
-3. **Split into chunks**: Use `${BUN_X} {baseDir}/scripts/chunk.ts <file> [--max-words <chunk_max_words>] [--output-dir <output-dir>]`
-   - Parses markdown AST (headings, paragraphs, lists, code blocks, tables, etc.)
+3. **Split into chunks**: Use `${BUN_X} {baseDir}/scripts/main.ts <file> [--max-words <chunk_max_words>] [--output-dir <output-dir>]`
+   - Parses markdown blocks (headings, paragraphs, lists, code blocks, tables, etc.)
    - Splits at markdown block boundaries to preserve structure
    - If a single block exceeds the threshold, falls back to line splitting, then word splitting
 4. **Assemble translation prompt**:

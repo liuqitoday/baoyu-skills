@@ -1,7 +1,7 @@
 ---
 name: baoyu-format-markdown
 description: Formats plain text or markdown files with frontmatter, titles, summaries, headings, bold, lists, and code blocks. Use when user asks to "format markdown", "beautify article", "add formatting", or improve article layout. Outputs to {filename}-formatted.md.
-version: 1.56.1
+version: 1.57.0
 metadata:
   openclaw:
     homepage: https://github.com/JimLiu/baoyu-skills#baoyu-format-markdown
@@ -88,7 +88,7 @@ Read the user-specified file, then detect content type:
 | Has `**bold**`, `*italic*`, lists, code blocks, blockquotes | Markdown |
 | None of above | Plain text |
 
-**If Markdown detected, ask user:**
+**If Markdown detected, use `AskUserQuestion` to ask:**
 
 ```
 Detected existing markdown formatting. What would you like to do?
@@ -174,7 +174,8 @@ Check for YAML frontmatter (`---` block). Create if missing.
 |-------|------------|
 | `title` | See **Title Generation** below |
 | `slug` | Infer from file path or generate from title |
-| `summary` | See **Summary Generation** below |
+| `summary` | One-sentence concise summary (see **Summary Generation** below) |
+| `description` | Longer descriptive summary (see **Summary Generation** below) |
 | `coverImage` | Check if `imgs/cover.png` exists in same directory; if so, use relative path |
 
 **Title Generation:**
@@ -187,73 +188,52 @@ Whether or not a title already exists, always run the title optimization flow (u
 - Reader pain point or curiosity trigger
 - Most memorable metaphor or golden quote
 
-**Generate 3-4 style-differentiated candidates:**
+**Generate titles** using formulas from `references/title-formulas.md`:
 
-| Style | Characteristics | Example |
-|-------|----------------|---------|
-| Subversive | Deny common practice, create conflict | "All de-AI-flavor prompts are wrong" |
-| Solution | Give the answer directly, promise value | "One recipe to make AI write in your voice" |
-| Suspense | Reveal half, spark curiosity | "It took me six months to find how to remove AI flavor" |
-| Concrete number | Use numbers for credibility | "150 lines of docs taught AI my writing style" |
+1. Select the **2-3 best-matching hook formulas** based on the article's content, tone, and structure (see "When to pick each formula" in the reference)
+2. Generate **1-2 straightforward titles** (descriptive or declarative, no formula — clear and accurate)
+3. If the user specifies a direction (e.g., "make it suspenseful"), prioritize that direction
+4. Total: **4-5 candidates**
 
-Present to user:
+Use `AskUserQuestion` to present candidates:
 
 ```
 Pick a title:
 
-1. [Title A] — (recommended)
-2. [Title B] — [style note]
-3. [Title C] — [style note]
+1. [Hook title A] — (recommended) [formula name]
+2. [Hook title B] — [formula name]
+3. [Hook title C] — [formula name]
+4. [Straightforward title D] — straightforward
+5. [Straightforward title E] — straightforward
 
 Enter number, or type a custom title:
 ```
 
-Put the strongest hook first and mark it (recommended).
-
-**Title principles:**
-- **Hook in first 5 chars**: create information gap or cognitive conflict
-- **Specific > abstract**: "150 lines" beats "a document"
-- **Negation > affirmation**: "you're doing it wrong" beats "the right way"
-- **Conversational**: like chatting with a friend, not a paper title
-- **Max ~25 chars**: longer titles get truncated in feeds
-- **Accurate, not clickbait**: the article must deliver what the title promises
-
-**Prohibited patterns:**
-- "浅谈 XX"、"关于 XX 的思考"、"XX 的探索与实践"
-- "震惊！"、"万字长文"、"建议收藏"
-- Pure questions without direction: "AI 写作的未来在哪里？"
+Put the strongest hook first and mark it (recommended). See `references/title-formulas.md` for title principles and prohibited patterns.
 
 If first line is H1, extract to frontmatter and remove from body. If frontmatter already has `title`, include it as context but still generate fresh candidates.
 
 **Summary Generation:**
 
-Generate 3 candidate summaries with different angles. Present to user:
+Generate two versions directly (no user selection needed), both stored in frontmatter:
 
-```
-Pick a summary:
+| Field | Length | Purpose |
+|-------|--------|---------|
+| `summary` | 1 sentence, ~50-80 chars | Concise hook — for feeds, social sharing, SEO meta |
+| `description` | 2-3 sentences, ~100-200 chars | Richer context — for article previews, newsletter blurbs |
 
-1. [Summary A] — [focus note]
-2. [Summary B] — [focus note]
-3. [Summary C] — [focus note]
-
-Enter number, or type a custom summary:
-```
-
-**Summary principles:**
-- 80-150 characters, precise and information-rich
+**Principles:**
 - Convey **core value** to the reader, not just the topic
-- Vary angles: problem-driven, result-driven, insight-driven
-- **Hook the reader**: make them want to read the full article
 - Use concrete details (numbers, outcomes, specific methods) over vague descriptions
+- `summary` should be punchy and self-contained; `description` can expand with supporting details
+- If frontmatter already has `summary` or `description`, keep existing and only generate the missing one
 
 **Prohibited patterns:**
-- "本文介绍了..."、"本文探讨了..."
+- "This article introduces...", "This article explores..."
 - Pure topic description without value proposition
 - Repeating the title in different words
 
-If frontmatter already has `summary`, skip selection and use it.
-
-**EXTEND.md skip behavior:** If `auto_select: true` is set in EXTEND.md, skip title and summary selection — generate the best candidate directly without asking. User can also set `auto_select_title: true` or `auto_select_summary: true` independently.
+**EXTEND.md skip behavior:** If `auto_select: true` or `auto_select_title: true` is set in EXTEND.md, skip title selection — generate the best candidate directly without asking.
 
 Once title is in frontmatter, body should NOT have H1 (avoid duplication).
 

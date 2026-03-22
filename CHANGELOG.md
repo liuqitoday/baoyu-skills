@@ -2,6 +2,138 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.76.1 - 2026-03-21
+
+### Documentation
+- `baoyu-youtube-transcript`: fix zsh glob issue — always single-quote YouTube URLs when running the script
+
+## 1.76.0 - 2026-03-21
+
+### Features
+- `baoyu-youtube-transcript`: add title heading, description summary, and cover image to markdown output
+
+### Fixes
+- `baoyu-markdown-to-html`: use process.execPath and tsx import in test runner
+
+## 1.75.0 - 2026-03-21
+
+### Features
+- `baoyu-youtube-transcript`: new skill — download YouTube video transcripts/subtitles and cover images with multi-language, chapters, and speaker identification support
+
+## 1.74.1 - 2026-03-21
+
+### Fixes
+- `baoyu-image-gen`: align OpenRouter image generation with current API, harden image support, and narrow Gemini aspect ratios (by @cwandev)
+- `baoyu-image-gen`: broaden OpenRouter model detection and aspect ratio validation
+
+## 1.74.0 - 2026-03-20
+
+### Features
+- `baoyu-markdown-to-html`: CLI now supports all rendering options — color, font-family, font-size, code-theme, mac-code-block, line-number, count, legend
+
+### Fixes
+- `baoyu-markdown-to-html`: fix CSS custom property regex to handle quoted values; grace/simple themes now layer default CSS
+
+## 1.73.3 - 2026-03-20
+
+### Fixes
+- `baoyu-post-to-wechat`: fix placeholder replacement to avoid shorter placeholders matching longer numbered variants
+
+## 1.73.2 - 2026-03-20
+
+### Fixes
+- `baoyu-post-to-wechat`: fix body image upload to correctly use media/uploadimg API with format and size validation (by @AICreator-Wind)
+
+### Refactor
+- `baoyu-post-to-wechat`: extract image processor module for local format conversion (WebP/BMP/GIF → JPEG/PNG) instead of material API fallback
+
+## 1.73.1 - 2026-03-18
+
+### Refactor
+- `baoyu-danger-x-to-markdown`: migrate tests from bun:test to node:test
+
+## 1.73.0 - 2026-03-18
+
+### Features
+- `baoyu-danger-x-to-markdown`: add video media support for X articles with poster image and video link rendering
+
+## 1.72.0 - 2026-03-18
+
+### Features
+- `baoyu-danger-x-to-markdown`: add MARKDOWN entity support for rendering embedded markdown/code blocks in X articles
+
+## 1.71.0 - 2026-03-17
+
+### Features
+- `baoyu-image-gen`: add Seedream reference image support for 5.0/4.5/4.0 models with model-specific size validation
+
+## 1.70.0 - 2026-03-17
+
+### Features
+- `baoyu-format-markdown`: optimize title generation with formula-based recommendations and straightforward alternatives
+- `baoyu-format-markdown`: auto-generate dual summaries (`summary` + `description`) in frontmatter
+
+## 1.69.1 - 2026-03-16
+
+### Fixes
+- `baoyu-chrome-cdp`: tighten chrome auto-connect logic to reduce false positives
+
+## 1.69.0 - 2026-03-16
+
+### Features
+- `baoyu-chrome-cdp`: support connecting to existing Chrome session (by @bviews)
+
+### Fixes
+- `baoyu-chrome-cdp`: support Chrome 146 native remote debugging in approval mode (by @bviews)
+- `baoyu-chrome-cdp`: keep HTTP validation in findExistingChromeDebugPort (by @bviews)
+- `baoyu-danger-gemini-web`: reuse openPageSession and fix orphaned tab leak (by @bviews)
+- `baoyu-danger-gemini-web`: respect explicit profile config over auto-discovery (by @bviews)
+- `baoyu-danger-gemini-web`: respect BAOYU_CHROME_PROFILE_DIR in auto-discovery skip (by @bviews)
+- `baoyu-post-to-wechat`: improve browser publishing reliability (by @cfh-7598)
+
+### Documentation
+- `baoyu-cover-image`: clarify people reference image workflow and interactive confirmation
+
+## 1.68.0 - 2026-03-14
+
+### Features
+- `baoyu-article-illustrator`: add configurable output directory (`default_output_dir`) with 4 options — `imgs-subdir`, `same-dir`, `illustrations-subdir`, `independent`
+- `baoyu-cover-image`: add character preservation from reference images — use `usage: direct` to pass people references to model for stylized likeness
+
+## 1.67.0 - 2026-03-13
+
+### Features
+- `baoyu-image-gen`: add qwen-image-2.0-pro model support for DashScope provider with free-form sizes and text rendering (by @JianJang2017)
+
+## 1.66.1 - 2026-03-13
+
+### Tests
+- Migrate test files from centralized `tests/` directory to colocate with source code
+- Convert tests from `.mjs` to TypeScript (`.test.ts`) with `tsx` runner
+- Add npm workspaces configuration and npm cache to CI workflow
+
+## 1.66.0 - 2026-03-13
+
+### Features
+- `baoyu-image-gen`: add Jimeng (即梦) and Seedream (豆包) image generation providers (by @lindaifeng)
+
+### Fixes
+- `baoyu-image-gen`: tighten Jimeng provider behavior
+
+### Refactor
+- `baoyu-image-gen`: export functions for testability and add module entry guard
+
+### Documentation
+- `baoyu-image-gen`: add Jimeng and Seedream provider documentation to SKILL.md and READMEs
+
+### Tests
+- Add test infrastructure with CI workflow and image-gen unit tests
+
+## 1.65.1 - 2026-03-13
+
+### Refactor
+- `baoyu-translate`: replace remark/unified with markdown-it for chunk parsing, add main.ts CLI entry point
+
 ## 1.65.0 - 2026-03-13
 
 ### Features

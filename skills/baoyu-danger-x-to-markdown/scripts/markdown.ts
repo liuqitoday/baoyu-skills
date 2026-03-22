@@ -18,6 +18,17 @@ export type FormatArticleOptions = {
   referencedTweets?: Map<string, ReferencedTweetInfo>;
 };
 
+type ResolvedMediaAsset =
+  | {
+      kind: "image";
+      url: string;
+    }
+  | {
+      kind: "video";
+      url: string;
+      posterUrl?: string;
+    };
+
 function coerceArticleEntity(value: unknown): ArticleEntity | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as ArticleEntity;
@@ -109,58 +120,127 @@ function resolveEntityEntry(
   return entityMap[String(entityKey)];
 }
 
-function resolveMediaUrl(info?: ArticleMediaInfo): string | undefined {
+function resolveVideoUrl(info?: ArticleMediaInfo): string | undefined {
   if (!info) return undefined;
-  if (info.original_img_url) return info.original_img_url;
-  if (info.preview_image?.original_img_url) return info.preview_image.original_img_url;
   const variants = info.variants ?? [];
   const mp4 = variants
     .filter((variant) => variant?.content_type?.includes("video"))
     .sort((a, b) => (b.bit_rate ?? 0) - (a.bit_rate ?? 0))[0];
-  return mp4?.url ?? variants[0]?.url;
+  return mp4?.url ?? variants.find((variant) => typeof variant?.url === "string")?.url;
 }
 
-function buildMediaById(article: ArticleEntity): Map<string, string> {
-  const map = new Map<string, string>();
+function resolveMediaAsset(info?: ArticleMediaInfo): ResolvedMediaAsset | undefined {
+  if (!info) return undefined;
+
+  const posterUrl = info.preview_image?.original_img_url ?? info.original_img_url;
+  const videoUrl = resolveVideoUrl(info);
+  if (videoUrl) {
+    return {
+      kind: "video",
+      url: videoUrl,
+      posterUrl,
+    };
+  }
+
+  const imageUrl = info.original_img_url ?? info.preview_image?.original_img_url;
+  if (imageUrl) {
+    return {
+      kind: "image",
+      url: imageUrl,
+    };
+  }
+
+  return undefined;
+}
+
+function resolveFallbackMediaAsset(rawUrl?: string): ResolvedMediaAsset | undefined {
+  if (!rawUrl) return undefined;
+
+  if (/^https:\/\/video\.twimg\.com\//i.test(rawUrl) || /\.(mp4|m4v|mov|webm)(?:$|[?#])/i.test(rawUrl)) {
+    return {
+      kind: "video",
+      url: rawUrl,
+    };
+  }
+
+  return {
+    kind: "image",
+    url: rawUrl,
+  };
+}
+
+function resolveCoverUrl(info?: ArticleMediaInfo): string | undefined {
+  if (!info) return undefined;
+  return info.original_img_url ?? info.preview_image?.original_img_url;
+}
+
+function buildMediaIdentity(asset: ResolvedMediaAsset): string {
+  return asset.kind === "video"
+    ? `video:${asset.url}:${asset.posterUrl ?? ""}`
+    : `image:${asset.url}`;
+}
+
+function renderMediaLines(
+  asset: ResolvedMediaAsset,
+  altText: string,
+  usedUrls: Set<string>
+): string[] {
+  if (asset.kind === "video") {
+    const lines: string[] = [];
+    if (asset.posterUrl && !usedUrls.has(asset.posterUrl)) {
+      usedUrls.add(asset.posterUrl);
+      lines.push(`![${altText || "video"}](${asset.posterUrl})`);
+    }
+    if (!usedUrls.has(asset.url)) {
+      usedUrls.add(asset.url);
+      lines.push(`[video](${asset.url})`);
+    }
+    return lines;
+  }
+
+  if (usedUrls.has(asset.url)) {
+    return [];
+  }
+
+  usedUrls.add(asset.url);
+  return [`![${altText}](${asset.url})`];
+}
+
+function buildMediaById(article: ArticleEntity): Map<string, ResolvedMediaAsset> {
+  const map = new Map<string, ResolvedMediaAsset>();
   for (const entity of article.media_entities ?? []) {
     if (!entity?.media_id) continue;
-    const url = resolveMediaUrl(entity.media_info);
-    if (url) {
-      map.set(entity.media_id, url);
+    const asset = resolveMediaAsset(entity.media_info);
+    if (asset) {
+      map.set(entity.media_id, asset);
     }
   }
   return map;
 }
 
-function collectMediaUrls(
-  article: ArticleEntity,
-  usedUrls: Set<string>,
-  excludeUrl?: string
-): string[] {
-  const urls: string[] = [];
-  const addUrl = (url?: string) => {
-    if (!url) return;
-    if (excludeUrl && url === excludeUrl) {
-      usedUrls.add(url);
-      return;
-    }
-    if (usedUrls.has(url)) return;
-    usedUrls.add(url);
-    urls.push(url);
+function collectMediaAssets(article: ArticleEntity): ResolvedMediaAsset[] {
+  const assets: ResolvedMediaAsset[] = [];
+  const seen = new Set<string>();
+  const addAsset = (asset?: ResolvedMediaAsset) => {
+    if (!asset) return;
+    const identity = buildMediaIdentity(asset);
+    if (seen.has(identity)) return;
+    seen.add(identity);
+    assets.push(asset);
   };
 
   for (const entity of article.media_entities ?? []) {
-    addUrl(resolveMediaUrl(entity?.media_info));
+    addAsset(resolveMediaAsset(entity?.media_info));
   }
 
-  return urls;
+  return assets;
 }
 
 function resolveEntityMediaLines(
   entityKey: number | undefined,
   entityMap: ArticleContentState["entityMap"] | undefined,
   entityLookup: EntityLookup,
-  mediaById: Map<string, string>,
+  mediaById: Map<string, ResolvedMediaAsset>,
   usedUrls: Set<string>
 ): string[] {
   if (entityKey === undefined) return [];
@@ -182,17 +262,16 @@ function resolveEntityMediaLines(
         : typeof item?.media_id === "string"
           ? item.media_id
           : undefined;
-    const url = mediaId ? mediaById.get(mediaId) : undefined;
-    if (url && !usedUrls.has(url)) {
-      usedUrls.add(url);
-      lines.push(`![${altText}](${url})`);
+    const asset = mediaId ? mediaById.get(mediaId) : undefined;
+    if (asset) {
+      lines.push(...renderMediaLines(asset, altText, usedUrls));
     }
   }
 
   const fallbackUrl = typeof value.data?.url === "string" ? value.data.url : undefined;
-  if (fallbackUrl && !usedUrls.has(fallbackUrl)) {
-    usedUrls.add(fallbackUrl);
-    lines.push(`![${altText}](${fallbackUrl})`);
+  const fallbackAsset = resolveFallbackMediaAsset(fallbackUrl);
+  if (fallbackAsset) {
+    lines.push(...renderMediaLines(fallbackAsset, altText, usedUrls));
   }
 
   return lines;
@@ -235,6 +314,22 @@ function resolveEntityTweetLines(
 
   lines.push(`> ${url}`);
   return lines;
+}
+
+function resolveEntityMarkdownLines(
+  entityKey: number | undefined,
+  entityMap: ArticleContentState["entityMap"] | undefined,
+  entityLookup: EntityLookup
+): string[] {
+  if (entityKey === undefined) return [];
+  const entry = resolveEntityEntry(entityKey, entityMap, entityLookup);
+  const value = entry?.value;
+  if (!value || value.type !== "MARKDOWN") return [];
+
+  const markdown = typeof value.data?.markdown === "string" ? value.data.markdown : "";
+  const normalized = markdown.replace(/\r\n/g, "\n").trimEnd();
+  if (!normalized) return [];
+  return normalized.split("\n");
 }
 
 function buildMediaLinkMap(
@@ -330,7 +425,7 @@ function renderContentBlocks(
   blocks: ArticleBlock[],
   entityMap: ArticleContentState["entityMap"] | undefined,
   entityLookup: EntityLookup,
-  mediaById: Map<string, string>,
+  mediaById: Map<string, ResolvedMediaAsset>,
   usedUrls: Set<string>,
   mediaLinkMap: Map<number, string>,
   referencedTweets?: Map<string, ReferencedTweetInfo>
@@ -397,6 +492,16 @@ function renderContentBlocks(
     return [...new Set(linkLines)];
   };
 
+  const collectMarkdownLines = (block: ArticleBlock): string[] => {
+    const ranges = Array.isArray(block.entityRanges) ? block.entityRanges : [];
+    const markdownLines: string[] = [];
+    for (const range of ranges) {
+      if (typeof range?.key !== "number") continue;
+      markdownLines.push(...resolveEntityMarkdownLines(range.key, entityMap, entityLookup));
+    }
+    return markdownLines;
+  };
+
   const pushTrailingMedia = (mediaLines: string[]) => {
     if (mediaLines.length > 0) {
       pushBlock(mediaLines, "media");
@@ -439,6 +544,11 @@ function renderContentBlocks(
       const tweetLines = collectTweetLines(block);
       if (tweetLines.length > 0) {
         pushBlock(tweetLines, "quote");
+      }
+
+      const markdownLines = collectMarkdownLines(block);
+      if (markdownLines.length > 0) {
+        pushBlock(markdownLines, "text");
       }
 
       const mediaLines = collectMediaLines(block);
@@ -571,7 +681,7 @@ export function formatArticleMarkdown(
     lines.push(`# ${title}`);
   }
 
-  const coverUrl = resolveMediaUrl(candidate.cover_media?.media_info) ?? null;
+  const coverUrl = resolveCoverUrl(candidate.cover_media?.media_info) ?? null;
   if (coverUrl) {
     usedUrls.add(coverUrl);
   }
@@ -602,12 +712,13 @@ export function formatArticleMarkdown(
     lines.push(candidate.preview_text.trim());
   }
 
-  const mediaUrls = collectMediaUrls(candidate, usedUrls, coverUrl ?? undefined);
-  if (mediaUrls.length > 0) {
+  const trailingMediaLines: string[] = [];
+  for (const asset of collectMediaAssets(candidate)) {
+    trailingMediaLines.push(...renderMediaLines(asset, "", usedUrls));
+  }
+  if (trailingMediaLines.length > 0) {
     lines.push("", "## Media", "");
-    for (const url of mediaUrls) {
-      lines.push(`![](${url})`);
-    }
+    lines.push(...trailingMediaLines);
   }
 
   return { markdown: lines.join("\n").trimEnd(), coverUrl };

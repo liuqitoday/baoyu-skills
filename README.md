@@ -76,7 +76,7 @@ Simply tell Claude Code:
 |--------|-------------|--------|
 | **content-skills** | Content generation and publishing | [xhs-images](#baoyu-xhs-images), [infographic](#baoyu-infographic), [cover-image](#baoyu-cover-image), [slide-deck](#baoyu-slide-deck), [comic](#baoyu-comic), [article-illustrator](#baoyu-article-illustrator), [post-to-x](#baoyu-post-to-x), [post-to-wechat](#baoyu-post-to-wechat), [post-to-weibo](#baoyu-post-to-weibo) |
 | **ai-generation-skills** | AI-powered generation backends | [image-gen](#baoyu-image-gen), [danger-gemini-web](#baoyu-danger-gemini-web) |
-| **utility-skills** | Utility tools for content processing | [url-to-markdown](#baoyu-url-to-markdown), [danger-x-to-markdown](#baoyu-danger-x-to-markdown), [compress-image](#baoyu-compress-image), [format-markdown](#baoyu-format-markdown), [markdown-to-html](#baoyu-markdown-to-html), [translate](#baoyu-translate) |
+| **utility-skills** | Utility tools for content processing | [youtube-transcript](#baoyu-youtube-transcript), [url-to-markdown](#baoyu-url-to-markdown), [danger-x-to-markdown](#baoyu-danger-x-to-markdown), [compress-image](#baoyu-compress-image), [format-markdown](#baoyu-format-markdown), [markdown-to-html](#baoyu-markdown-to-html), [translate](#baoyu-translate) |
 
 ## Update Skills
 
@@ -665,7 +665,7 @@ AI-powered generation backends.
 
 #### baoyu-image-gen
 
-AI SDK-based image generation using OpenAI, Google, OpenRouter, DashScope (Aliyun Tongyi Wanxiang), and Replicate APIs. Supports text-to-image, reference images, aspect ratios, and quality presets.
+AI SDK-based image generation using OpenAI, Google, OpenRouter, DashScope (Aliyun Tongyi Wanxiang), Jimeng (即梦), Seedream (豆包), and Replicate APIs. Supports text-to-image, reference images, aspect ratios, and quality presets.
 
 ```bash
 # Basic generation (auto-detect provider)
@@ -689,7 +689,13 @@ AI SDK-based image generation using OpenAI, Google, OpenRouter, DashScope (Aliyu
 # Replicate
 /baoyu-image-gen --prompt "A cat" --image cat.png --provider replicate
 
-# With reference images (Google, OpenAI, OpenRouter, or Replicate)
+# Jimeng (即梦)
+/baoyu-image-gen --prompt "一只可爱的猫" --image cat.png --provider jimeng
+
+# Seedream (豆包)
+/baoyu-image-gen --prompt "一只可爱的猫" --image cat.png --provider seedream
+
+# With reference images (Google, OpenAI, OpenRouter, Replicate, or Seedream 5.0/4.5/4.0)
 /baoyu-image-gen --prompt "Make it blue" --image out.png --ref source.png
 ```
 
@@ -699,12 +705,12 @@ AI SDK-based image generation using OpenAI, Google, OpenRouter, DashScope (Aliyu
 | `--prompt`, `-p` | Prompt text |
 | `--promptfiles` | Read prompt from files (concatenated) |
 | `--image` | Output image path (required) |
-| `--provider` | `google`, `openai`, `openrouter`, `dashscope` or `replicate` (default: auto-detect; prefers google) |
+| `--provider` | `google`, `openai`, `openrouter`, `dashscope`, `jimeng`, `seedream` or `replicate` (default: auto-detect; prefers google) |
 | `--model`, `-m` | Model ID |
 | `--ar` | Aspect ratio (e.g., `16:9`, `1:1`, `4:3`) |
 | `--size` | Size (e.g., `1024x1024`) |
 | `--quality` | `normal` or `2k` (default: `2k`) |
-| `--ref` | Reference images (Google, OpenAI, OpenRouter or Replicate) |
+| `--ref` | Reference images (Google, OpenAI, OpenRouter, Replicate, or Seedream 5.0/4.5/4.0) |
 
 **Environment Variables** (see [Environment Configuration](#environment-configuration) for setup):
 | Variable | Description | Default |
@@ -714,16 +720,24 @@ AI SDK-based image generation using OpenAI, Google, OpenRouter, DashScope (Aliyu
 | `GOOGLE_API_KEY` | Google API key | - |
 | `DASHSCOPE_API_KEY` | DashScope API key (Aliyun) | - |
 | `REPLICATE_API_TOKEN` | Replicate API token | - |
+| `JIMENG_ACCESS_KEY_ID` | Jimeng Volcengine access key | - |
+| `JIMENG_SECRET_ACCESS_KEY` | Jimeng Volcengine secret key | - |
+| `ARK_API_KEY` | Seedream Volcengine ARK API key | - |
 | `OPENAI_IMAGE_MODEL` | OpenAI model | `gpt-image-1.5` |
 | `OPENROUTER_IMAGE_MODEL` | OpenRouter model | `google/gemini-3.1-flash-image-preview` |
 | `GOOGLE_IMAGE_MODEL` | Google model | `gemini-3-pro-image-preview` |
-| `DASHSCOPE_IMAGE_MODEL` | DashScope model | `z-image-turbo` |
+| `DASHSCOPE_IMAGE_MODEL` | DashScope model | `qwen-image-2.0-pro` |
 | `REPLICATE_IMAGE_MODEL` | Replicate model | `google/nano-banana-pro` |
+| `JIMENG_IMAGE_MODEL` | Jimeng model | `jimeng_t2i_v40` |
+| `SEEDREAM_IMAGE_MODEL` | Seedream model | `doubao-seedream-5-0-260128` |
 | `OPENAI_BASE_URL` | Custom OpenAI endpoint | - |
 | `OPENROUTER_BASE_URL` | Custom OpenRouter endpoint | `https://openrouter.ai/api/v1` |
 | `GOOGLE_BASE_URL` | Custom Google endpoint | - |
 | `DASHSCOPE_BASE_URL` | Custom DashScope endpoint | - |
 | `REPLICATE_BASE_URL` | Custom Replicate endpoint | - |
+| `JIMENG_BASE_URL` | Custom Jimeng endpoint | `https://visual.volcengineapi.com` |
+| `JIMENG_REGION` | Jimeng region | `cn-north-1` |
+| `SEEDREAM_BASE_URL` | Custom Seedream endpoint | `https://ark.cn-beijing.volces.com/api/v3` |
 
 **Provider Auto-Selection**:
 1. If `--provider` specified → use it
@@ -751,6 +765,40 @@ Interacts with Gemini Web to generate text and images.
 ### Utility Skills
 
 Utility tools for content processing.
+
+#### baoyu-youtube-transcript
+
+Download YouTube video transcripts/subtitles and cover images. Supports multiple languages, translation, chapters, and speaker identification. Caches raw data for fast re-formatting.
+
+```bash
+# Default: markdown with timestamps
+/baoyu-youtube-transcript https://www.youtube.com/watch?v=VIDEO_ID
+
+# Specify languages (priority order)
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --languages zh,en,ja
+
+# With chapters and speaker identification
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --chapters --speakers
+
+# SRT subtitle format
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --format srt
+
+# List available transcripts
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --list
+```
+
+**Options**:
+| Option | Description | Default |
+|--------|-------------|---------|
+| `<url-or-id>` | YouTube URL or video ID | Required |
+| `--languages <codes>` | Language codes, comma-separated | `en` |
+| `--format <fmt>` | Output format: `text`, `srt` | `text` |
+| `--translate <code>` | Translate to specified language | |
+| `--chapters` | Chapter segmentation from video description | |
+| `--speakers` | Speaker identification (requires AI post-processing) | |
+| `--no-timestamps` | Disable timestamps | |
+| `--list` | List available transcripts | |
+| `--refresh` | Force re-fetch, ignore cache | |
 
 #### baoyu-url-to-markdown
 
@@ -982,13 +1030,25 @@ GOOGLE_IMAGE_MODEL=gemini-3-pro-image-preview
 
 # DashScope (Aliyun Tongyi Wanxiang)
 DASHSCOPE_API_KEY=sk-xxx
-DASHSCOPE_IMAGE_MODEL=z-image-turbo
+DASHSCOPE_IMAGE_MODEL=qwen-image-2.0-pro
 # DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/api/v1
 
 # Replicate
 REPLICATE_API_TOKEN=r8_xxx
 REPLICATE_IMAGE_MODEL=google/nano-banana-pro
 # REPLICATE_BASE_URL=https://api.replicate.com
+
+# Jimeng (即梦)
+JIMENG_ACCESS_KEY_ID=xxx
+JIMENG_SECRET_ACCESS_KEY=xxx
+JIMENG_IMAGE_MODEL=jimeng_t2i_v40
+# JIMENG_BASE_URL=https://visual.volcengineapi.com
+# JIMENG_REGION=cn-north-1
+
+# Seedream (豆包)
+ARK_API_KEY=xxx
+SEEDREAM_IMAGE_MODEL=doubao-seedream-5-0-260128
+# SEEDREAM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 EOF
 ```
 

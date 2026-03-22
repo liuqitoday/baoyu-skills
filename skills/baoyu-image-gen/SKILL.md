@@ -1,7 +1,7 @@
 ---
 name: baoyu-image-gen
-description: AI image generation with OpenAI, Google, OpenRouter, DashScope and Replicate APIs. Supports text-to-image, reference images, aspect ratios, and batch generation from saved prompt files. Sequential by default; use batch parallel generation when the user already has multiple prompts or wants stable multi-image throughput. Use when user asks to generate, create, or draw images.
-version: 1.56.2
+description: AI image generation with OpenAI, Google, OpenRouter, DashScope, Jimeng, Seedream and Replicate APIs. Supports text-to-image, reference images, aspect ratios, and batch generation from saved prompt files. Sequential by default; use batch parallel generation when the user already has multiple prompts or wants stable multi-image throughput. Use when user asks to generate, create, or draw images.
+version: 1.56.3
 metadata:
   openclaw:
     homepage: https://github.com/JimLiu/baoyu-skills#baoyu-image-gen
@@ -13,7 +13,7 @@ metadata:
 
 # Image Generation (AI SDK)
 
-Official API-based image generation. Supports OpenAI, Google, OpenRouter, DashScope (阿里通义万象) and Replicate providers.
+Official API-based image generation. Supports OpenAI, Google, OpenRouter, DashScope (阿里通义万象), Jimeng (即梦), Seedream (豆包) and Replicate providers.
 
 ## Script Directory
 
@@ -74,7 +74,7 @@ ${BUN_X} {baseDir}/scripts/main.ts --prompt "A cat" --image out.png --quality 2k
 # From prompt files
 ${BUN_X} {baseDir}/scripts/main.ts --promptfiles system.md content.md --image out.png
 
-# With reference images (Google, OpenAI, OpenRouter, or Replicate)
+# With reference images (Google, OpenAI, OpenRouter, Replicate, or Seedream 4.0/4.5/5.0)
 ${BUN_X} {baseDir}/scripts/main.ts --prompt "Make blue" --image out.png --ref source.png
 
 # With reference images (explicit provider/model)
@@ -91,6 +91,12 @@ ${BUN_X} {baseDir}/scripts/main.ts --prompt "A cat" --image out.png --provider o
 
 # DashScope (阿里通义万象)
 ${BUN_X} {baseDir}/scripts/main.ts --prompt "一只可爱的猫" --image out.png --provider dashscope
+
+# DashScope Qwen-Image 2.0 Pro (recommended for custom sizes and text rendering)
+${BUN_X} {baseDir}/scripts/main.ts --prompt "为咖啡品牌设计一张 21:9 横幅海报，包含清晰中文标题" --image out.png --provider dashscope --model qwen-image-2.0-pro --size 2048x872
+
+# DashScope legacy Qwen fixed-size model
+${BUN_X} {baseDir}/scripts/main.ts --prompt "一张电影感海报" --image out.png --provider dashscope --model qwen-image-max --size 1664x928
 
 # Replicate (google/nano-banana-pro)
 ${BUN_X} {baseDir}/scripts/main.ts --prompt "A cat" --image out.png --provider replicate
@@ -141,13 +147,13 @@ Paths in `promptFiles`, `image`, and `ref` are resolved relative to the batch fi
 | `--image <path>` | Output image path (required in single-image mode) |
 | `--batchfile <path>` | JSON batch file for multi-image generation |
 | `--jobs <count>` | Worker count for batch mode (default: auto, max from config, built-in default 10) |
-| `--provider google\|openai\|openrouter\|dashscope\|replicate` | Force provider (default: auto-detect) |
-| `--model <id>`, `-m` | Model ID (Google: `gemini-3-pro-image-preview`; OpenAI: `gpt-image-1.5`; OpenRouter: `google/gemini-3.1-flash-image-preview`) |
+| `--provider google\|openai\|openrouter\|dashscope\|jimeng\|seedream\|replicate` | Force provider (default: auto-detect) |
+| `--model <id>`, `-m` | Model ID (Google: `gemini-3-pro-image-preview`; OpenAI: `gpt-image-1.5`; OpenRouter: `google/gemini-3.1-flash-image-preview`; DashScope: `qwen-image-2.0-pro`) |
 | `--ar <ratio>` | Aspect ratio (e.g., `16:9`, `1:1`, `4:3`) |
 | `--size <WxH>` | Size (e.g., `1024x1024`) |
 | `--quality normal\|2k` | Quality preset (default: `2k`) |
 | `--imageSize 1K\|2K\|4K` | Image size for Google/OpenRouter (default: from quality) |
-| `--ref <files...>` | Reference images. Supported by Google multimodal, OpenAI GPT Image edits, OpenRouter multimodal models, and Replicate |
+| `--ref <files...>` | Reference images. Supported by Google multimodal, OpenAI GPT Image edits, OpenRouter multimodal models, Replicate, and Seedream 5.0/4.5/4.0. Not supported by Jimeng, Seedream 3.0, or removed SeedEdit 3.0 |
 | `--n <count>` | Number of images |
 | `--json` | JSON output |
 
@@ -160,11 +166,16 @@ Paths in `promptFiles`, `image`, and `ref` are resolved relative to the batch fi
 | `GOOGLE_API_KEY` | Google API key |
 | `DASHSCOPE_API_KEY` | DashScope API key (阿里云) |
 | `REPLICATE_API_TOKEN` | Replicate API token |
+| `JIMENG_ACCESS_KEY_ID` | Jimeng (即梦) Volcengine access key |
+| `JIMENG_SECRET_ACCESS_KEY` | Jimeng (即梦) Volcengine secret key |
+| `ARK_API_KEY` | Seedream (豆包) Volcengine ARK API key |
 | `OPENAI_IMAGE_MODEL` | OpenAI model override |
 | `OPENROUTER_IMAGE_MODEL` | OpenRouter model override (default: `google/gemini-3.1-flash-image-preview`) |
 | `GOOGLE_IMAGE_MODEL` | Google model override |
-| `DASHSCOPE_IMAGE_MODEL` | DashScope model override (default: z-image-turbo) |
+| `DASHSCOPE_IMAGE_MODEL` | DashScope model override (default: `qwen-image-2.0-pro`) |
 | `REPLICATE_IMAGE_MODEL` | Replicate model override (default: google/nano-banana-pro) |
+| `JIMENG_IMAGE_MODEL` | Jimeng model override (default: jimeng_t2i_v40) |
+| `SEEDREAM_IMAGE_MODEL` | Seedream model override (default: doubao-seedream-5-0-260128) |
 | `OPENAI_BASE_URL` | Custom OpenAI endpoint |
 | `OPENROUTER_BASE_URL` | Custom OpenRouter endpoint (default: `https://openrouter.ai/api/v1`) |
 | `OPENROUTER_HTTP_REFERER` | Optional app/site URL for OpenRouter attribution |
@@ -172,6 +183,9 @@ Paths in `promptFiles`, `image`, and `ref` are resolved relative to the batch fi
 | `GOOGLE_BASE_URL` | Custom Google endpoint |
 | `DASHSCOPE_BASE_URL` | Custom DashScope endpoint |
 | `REPLICATE_BASE_URL` | Custom Replicate endpoint |
+| `JIMENG_BASE_URL` | Custom Jimeng endpoint (default: `https://visual.volcengineapi.com`) |
+| `JIMENG_REGION` | Jimeng region (default: `cn-north-1`) |
+| `SEEDREAM_BASE_URL` | Custom Seedream endpoint (default: `https://ark.cn-beijing.volces.com/api/v3`) |
 | `BAOYU_IMAGE_GEN_MAX_WORKERS` | Override batch worker cap |
 | `BAOYU_IMAGE_GEN_<PROVIDER>_CONCURRENCY` | Override provider concurrency, e.g. `BAOYU_IMAGE_GEN_REPLICATE_CONCURRENCY` |
 | `BAOYU_IMAGE_GEN_<PROVIDER>_START_INTERVAL_MS` | Override provider start gap, e.g. `BAOYU_IMAGE_GEN_REPLICATE_START_INTERVAL_MS` |
@@ -192,6 +206,52 @@ Model priority (highest → lowest), applies to all providers:
 **Agent MUST display model info** before each generation:
 - Show: `Using [provider] / [model]`
 - Show switch hint: `Switch model: --model <id> | EXTEND.md default_model.[provider] | env <PROVIDER>_IMAGE_MODEL`
+
+### DashScope Models
+
+Use `--model qwen-image-2.0-pro` or set `default_model.dashscope` / `DASHSCOPE_IMAGE_MODEL` when the user wants official Qwen-Image behavior.
+
+Official DashScope model families:
+
+- `qwen-image-2.0-pro`, `qwen-image-2.0-pro-2026-03-03`, `qwen-image-2.0`, `qwen-image-2.0-2026-03-03`
+  - Free-form `size` in `宽*高` format
+  - Total pixels must stay between `512*512` and `2048*2048`
+  - Default size is approximately `1024*1024`
+  - Best choice for custom ratios such as `21:9` and text-heavy Chinese/English layouts
+- `qwen-image-max`, `qwen-image-max-2025-12-30`, `qwen-image-plus`, `qwen-image-plus-2026-01-09`, `qwen-image`
+  - Fixed sizes only: `1664*928`, `1472*1104`, `1328*1328`, `1104*1472`, `928*1664`
+  - Default size is `1664*928`
+  - `qwen-image` currently has the same capability as `qwen-image-plus`
+- Legacy DashScope models such as `z-image-turbo`, `z-image-ultra`, `wanx-v1`
+  - Keep using them only when the user explicitly asks for legacy behavior or compatibility
+
+When translating CLI args into DashScope behavior:
+
+- `--size` wins over `--ar`
+- For `qwen-image-2.0*`, prefer explicit `--size`; otherwise infer from `--ar` and use the official recommended resolutions below
+- For `qwen-image-max/plus/image`, only use the five official fixed sizes; if the requested ratio is not covered, switch to `qwen-image-2.0-pro`
+- `--quality` is a baoyu-image-gen compatibility preset, not a native DashScope API field. Mapping `normal` / `2k` onto the `qwen-image-2.0*` table below is an implementation inference, not an official API guarantee
+
+Recommended `qwen-image-2.0*` sizes for common aspect ratios:
+
+| Ratio | `normal` | `2k` |
+|-------|----------|------|
+| `1:1` | `1024*1024` | `1536*1536` |
+| `2:3` | `768*1152` | `1024*1536` |
+| `3:2` | `1152*768` | `1536*1024` |
+| `3:4` | `960*1280` | `1080*1440` |
+| `4:3` | `1280*960` | `1440*1080` |
+| `9:16` | `720*1280` | `1080*1920` |
+| `16:9` | `1280*720` | `1920*1080` |
+| `21:9` | `1344*576` | `2048*872` |
+
+DashScope official APIs also expose `negative_prompt`, `prompt_extend`, and `watermark`, but `baoyu-image-gen` does not expose them as dedicated CLI flags today.
+
+Official references:
+
+- [Qwen-Image API](https://help.aliyun.com/zh/model-studio/qwen-image-api)
+- [Text-to-image guide](https://help.aliyun.com/zh/model-studio/text-to-image)
+- [Qwen-Image Edit API](https://help.aliyun.com/zh/model-studio/qwen-image-edit-api)
 
 ### OpenRouter Models
 
@@ -227,7 +287,7 @@ ${BUN_X} {baseDir}/scripts/main.ts --prompt "A cat" --image out.png --provider r
 
 ## Provider Selection
 
-1. `--ref` provided + no `--provider` → auto-select Google first, then OpenAI, then OpenRouter, then Replicate
+1. `--ref` provided + no `--provider` → auto-select Google first, then OpenAI, then OpenRouter, then Replicate (Jimeng and Seedream do not support reference images)
 2. `--provider` specified → use it (if `--ref`, must be `google`, `openai`, `openrouter`, or `replicate`)
 3. Only one API key available → use that provider
 4. Multiple available → default to Google

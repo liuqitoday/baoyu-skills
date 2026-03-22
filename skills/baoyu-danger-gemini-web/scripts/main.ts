@@ -101,7 +101,12 @@ Options:
   -h, --help                Show help
 
 Env overrides:
-  GEMINI_WEB_DATA_DIR, GEMINI_WEB_COOKIE_PATH, GEMINI_WEB_CHROME_PROFILE_DIR, GEMINI_WEB_CHROME_PATH`);
+  GEMINI_WEB_DATA_DIR, GEMINI_WEB_COOKIE_PATH, GEMINI_WEB_CHROME_PROFILE_DIR, GEMINI_WEB_CHROME_PATH
+
+Notes:
+  By default cookie refresh may reuse an already-running local Chrome/Chromium debugging session.
+  Set --profile-dir or GEMINI_WEB_CHROME_PROFILE_DIR to force a dedicated profile and skip existing-session reuse.
+  This reuse path is separate from Chrome DevTools MCP's prompt-based --autoConnect flow.`);
 }
 
 function parseArgs(argv: string[]): CliArgs {

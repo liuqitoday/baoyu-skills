@@ -201,6 +201,12 @@ CRITICAL: The generated cover MUST visually reference the provided images. The c
 - [Typography]: [Specific treatment, e.g., "Uppercase text with wide letter-spacing"]
 - [Layout element]: [Specific spatial element, e.g., "Bottom banner strip in dark color"]
 
+## From Ref 1 ([filename]) — Characters (if people present):
+- **Character 1**: [Appearance, e.g., "Woman, long wavy blonde hair"] → MUST stylize: [e.g., "flat-vector, simplified face, keep blonde hair, label: 'Nicole Forsgren'"]
+- **Character 2**: [Appearance, e.g., "Man, short dark hair, stubble"] → MUST stylize: [e.g., "flat-vector, simplified face, keep dark hair, label: 'Gergely Orosz'"]
+- **Placement**: [e.g., "Right third, side by side, facing left toward main visual"]
+- **Style**: Match rendering style, NOT photorealistic
+
 ## From Ref 2 ([filename]) — REQUIRED elements:
 [Same detailed breakdown]
 

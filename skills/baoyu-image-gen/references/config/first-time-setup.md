@@ -50,7 +50,7 @@ options:
   - label: "OpenRouter"
     description: "Router for Gemini/FLUX/OpenAI-compatible image models"
   - label: "DashScope"
-    description: "Alibaba Cloud - z-image-turbo, good for Chinese content"
+    description: "Alibaba Cloud - Qwen-Image, strong Chinese/English text rendering"
   - label: "Replicate"
     description: "Community models - nano-banana-pro, flexible model selection"
 ```
@@ -186,11 +186,25 @@ options:
 header: "DashScope Model"
 question: "Choose a default DashScope image generation model?"
 options:
-  - label: "z-image-turbo (Recommended)"
-    description: "Fast generation, good quality"
+  - label: "qwen-image-2.0-pro (Recommended)"
+    description: "Best DashScope model for text rendering and custom sizes"
+  - label: "qwen-image-2.0"
+    description: "Faster 2.0 variant with flexible output size"
+  - label: "qwen-image-max"
+    description: "Legacy Qwen model with five fixed output sizes"
+  - label: "qwen-image-plus"
+    description: "Legacy Qwen model, same current capability as qwen-image"
+  - label: "z-image-turbo"
+    description: "Legacy DashScope model for compatibility"
   - label: "z-image-ultra"
-    description: "Higher quality, slower generation"
+    description: "Legacy DashScope model, higher quality but slower"
 ```
+
+Notes for DashScope setup:
+
+- Prefer `qwen-image-2.0-pro` when the user needs custom `--size`, uncommon ratios like `21:9`, or strong Chinese/English text rendering.
+- `qwen-image-max` / `qwen-image-plus` / `qwen-image` only support five fixed sizes: `1664*928`, `1472*1104`, `1328*1328`, `1104*1472`, `928*1664`.
+- In `baoyu-image-gen`, `quality` is a compatibility preset. It is not a native DashScope parameter.
 
 ### Replicate Model Selection
 

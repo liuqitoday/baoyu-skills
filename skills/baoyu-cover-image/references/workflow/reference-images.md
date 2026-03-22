@@ -31,8 +31,8 @@ usage: direct | style | palette
 
 | Usage | When to Use |
 |-------|-------------|
-| `direct` | Reference matches desired output closely |
-| `style` | Extract visual style characteristics only |
+| `direct` | Model sees reference image directly; required if people must appear in output |
+| `style` | Extract visual style only (not for people who must appear) |
 | `palette` | Extract color scheme only |
 
 ## Verbal Extraction (No File)
@@ -58,6 +58,19 @@ References are high-priority inputs. Extract **specific, concrete, reproducible*
 | **Usage recommendation** | `direct` / `style` / `palette` | Based on analysis |
 
 **Output format**: List each element as bullet that can be copy-pasted into prompt as mandatory instruction.
+
+### Character Analysis ⚠️ If Reference Contains People
+
+Use `usage: direct` so model sees the reference image. Additionally describe per character: **appearance**, **pose**, **clothing** → with **transformation rules** (stylize to match rendering).
+
+| Extract | Good | Bad |
+|---------|------|-----|
+| Appearance | "Woman: long wavy blonde hair, friendly smile" | "A woman" |
+| Pose | "Standing, facing camera, confident posture" | "Standing" |
+| Clothing | "Dark T-shirt, business casual" | "Formal" |
+| Transform | "Flat-vector cartoon, keep hair color & clothing" | "Make cartoon" |
+
+Use `usage: direct`. Output each character as MUST/REQUIRED prompt instruction.
 
 ## Verification Output
 

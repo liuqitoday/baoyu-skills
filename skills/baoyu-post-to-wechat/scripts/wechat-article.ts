@@ -51,32 +51,42 @@ async function waitForElement(session: ChromeSession, selector: string, timeoutM
   return false;
 }
 
-async function clickMenuByText(session: ChromeSession, text: string): Promise<void> {
+async function clickMenuByText(session: ChromeSession, text: string, maxRetries = 5): Promise<void> {
   console.log(`[wechat] Clicking "${text}" menu...`);
-  const posResult = await session.cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
-    expression: `
-      (function() {
-        const items = document.querySelectorAll('.new-creation__menu .new-creation__menu-item');
-        for (const item of items) {
-          const title = item.querySelector('.new-creation__menu-title');
-          if (title && title.textContent?.trim() === '${text}') {
-            item.scrollIntoView({ block: 'center' });
-            const rect = item.getBoundingClientRect();
-            return JSON.stringify({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const posResult = await session.cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
+      expression: `
+        (function() {
+          const items = document.querySelectorAll('.new-creation__menu .new-creation__menu-item');
+          for (const item of items) {
+            const title = item.querySelector('.new-creation__menu-title');
+            if (title && title.textContent?.trim() === '${text}') {
+              item.scrollIntoView({ block: 'center' });
+              const rect = item.getBoundingClientRect();
+              return JSON.stringify({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+            }
           }
-        }
-        return 'null';
-      })()
-    `,
-    returnByValue: true,
-  }, { sessionId: session.sessionId });
+          return 'null';
+        })()
+      `,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
 
-  if (posResult.result.value === 'null') throw new Error(`Menu "${text}" not found`);
-  const pos = JSON.parse(posResult.result.value);
+    if (posResult.result.value !== 'null') {
+      const pos = JSON.parse(posResult.result.value);
+      await session.cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+      await sleep(100);
+      await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+      return;
+    }
 
-  await session.cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
-  await sleep(100);
-  await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+    if (attempt < maxRetries) {
+      const delay = Math.min(1000 * attempt, 3000);
+      console.log(`[wechat] Menu "${text}" not found, retrying in ${delay}ms (${attempt}/${maxRetries})...`);
+      await sleep(delay);
+    }
+  }
+  throw new Error(`Menu "${text}" not found after ${maxRetries} attempts`);
 }
 
 async function copyImageToClipboard(imagePath: string): Promise<void> {
@@ -495,10 +505,10 @@ export async function postArticle(options: ArticleOptions): Promise<void> {
       if (!loggedIn) throw new Error('Login timeout');
     }
     console.log('[wechat] Logged in.');
-    await sleep(2000);
+    await sleep(5000);
 
     // Wait for menu to be ready
-    const menuReady = await waitForElement(session, '.new-creation__menu', 20_000);
+    const menuReady = await waitForElement(session, '.new-creation__menu', 40_000);
     if (!menuReady) throw new Error('Home page menu did not load');
 
     const targets = await cdp.send<{ targetInfos: Array<{ targetId: string; url: string; type: string }> }>('Target.getTargets');
@@ -517,16 +527,21 @@ export async function postArticle(options: ArticleOptions): Promise<void> {
     await cdp.send('Runtime.enable', {}, { sessionId });
     await cdp.send('DOM.enable', {}, { sessionId });
 
-    await sleep(3000);
+    // Wait for editor elements to fully load
+    console.log('[wechat] Waiting for editor to load...');
+    const editorLoaded = await waitForElement(session, '#title', 30_000);
+    if (!editorLoaded) throw new Error('Editor did not load (#title not found)');
+    await waitForElement(session, '.ProseMirror', 15_000);
+    await sleep(2000);
 
     if (effectiveTitle) {
       console.log('[wechat] Filling title...');
-      await evaluate(session, `document.querySelector('#title').value = ${JSON.stringify(effectiveTitle)}; document.querySelector('#title').dispatchEvent(new Event('input', { bubbles: true }));`);
+      await evaluate(session, `(function() { const el = document.querySelector('#title'); el.focus(); el.value = ${JSON.stringify(effectiveTitle)}; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
     }
 
     if (effectiveAuthor) {
       console.log('[wechat] Filling author...');
-      await evaluate(session, `document.querySelector('#author').value = ${JSON.stringify(effectiveAuthor)}; document.querySelector('#author').dispatchEvent(new Event('input', { bubbles: true }));`);
+      await evaluate(session, `(function() { const el = document.querySelector('#author'); el.focus(); el.value = ${JSON.stringify(effectiveAuthor)}; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
     }
 
     await sleep(500);
