@@ -26,6 +26,12 @@ interface Snippet {
   duration: number;
 }
 
+interface Sentence {
+  text: string;
+  start: string;
+  end: string;
+}
+
 interface TranscriptInfo {
   language: string;
   languageCode: string;
@@ -255,14 +261,18 @@ function parseChapters(description: string): Chapter[] {
   return chapters.length >= 2 ? chapters : [];
 }
 
-function getBestThumbnailUrl(videoId: string, data: any): string {
+function getThumbnailUrls(videoId: string, data: any): string[] {
+  const urls = [
+    `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+  ];
   const thumbnails = data?.videoDetails?.thumbnail?.thumbnails ||
     data?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails || [];
   if (thumbnails.length) {
     const sorted = [...thumbnails].sort((a: any, b: any) => (b.width || 0) - (a.width || 0));
-    return sorted[0].url;
+    for (const t of sorted) if (t.url && !urls.includes(t.url)) urls.push(t.url);
   }
-  return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  return urls;
 }
 
 function buildVideoMeta(data: any, videoId: string, langInfo: { code: string; name: string; isGenerated: boolean }, chapters: Chapter[]): VideoMeta {
@@ -278,15 +288,13 @@ function buildVideoMeta(data: any, videoId: string, langInfo: { code: string; na
     publishDate: mf.publishDate || mf.uploadDate || "",
     url: `https://www.youtube.com/watch?v=${videoId}`,
     coverImage: "",
-    thumbnailUrl: getBestThumbnailUrl(videoId, data),
+    thumbnailUrl: getThumbnailUrls(videoId, data)[0],
     language: langInfo,
     chapters,
   };
 }
 
-async function downloadCoverImage(url: string, outputPath: string): Promise<boolean> {
-  const urls = [url];
-  if (url.includes("maxresdefault")) urls.push(url.replace("maxresdefault", "hqdefault"));
+async function downloadCoverImage(urls: string[], outputPath: string): Promise<boolean> {
   for (const u of urls) {
     try {
       const r = await fetch(u);
@@ -356,6 +364,129 @@ function groupIntoParagraphs(snippets: Snippet[]): Paragraph[] {
   return paras;
 }
 
+// --- Sentence segmentation ---
+
+const SENTENCE_END_RE = /[.?!…。？！⁈⁇‼‽．]/;
+
+function isCJK(ch: string): boolean {
+  const code = ch.charCodeAt(0);
+  return (code >= 0x4E00 && code <= 0x9FFF) ||
+    (code >= 0x3040 && code <= 0x309F) ||
+    (code >= 0x30A0 && code <= 0x30FF) ||
+    (code >= 0xAC00 && code <= 0xD7AF) ||
+    (code >= 0x3400 && code <= 0x4DBF) ||
+    (code >= 0xF900 && code <= 0xFAFF);
+}
+
+function splitSnippetAtPunctuation(s: Snippet): { text: string; start: number; end: number }[] {
+  const { text, start, duration } = s;
+  const end = start + duration;
+  if (!text.length) return [];
+
+  const splitPoints: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (SENTENCE_END_RE.test(text[i])) {
+      while (i + 1 < text.length && SENTENCE_END_RE.test(text[i + 1])) i++;
+      if (i < text.length - 1) splitPoints.push(i);
+    }
+  }
+
+  if (!splitPoints.length) return [{ text, start, end }];
+
+  const parts: { text: string; start: number; end: number }[] = [];
+  let prev = 0;
+  for (const pos of splitPoints) {
+    const partText = text.slice(prev, pos + 1).trim();
+    if (partText) {
+      parts.push({
+        text: partText,
+        start: start + (prev / text.length) * duration,
+        end: start + ((pos + 1) / text.length) * duration,
+      });
+    }
+    prev = pos + 1;
+  }
+
+  const remaining = text.slice(prev).trim();
+  if (remaining) {
+    parts.push({ text: remaining, start: start + (prev / text.length) * duration, end });
+  }
+
+  return parts;
+}
+
+function mergeTexts(texts: string[]): string {
+  if (!texts.length) return "";
+  let result = texts[0];
+  for (let i = 1; i < texts.length; i++) {
+    const next = texts[i];
+    if (!next) continue;
+    const lastChar = result[result.length - 1];
+    const firstChar = next[0];
+    if (isCJK(lastChar) || isCJK(firstChar)) {
+      result += next;
+    } else {
+      result = result.trimEnd() + " " + next.trimStart();
+    }
+  }
+  return result.replace(/ {2,}/g, " ");
+}
+
+function segmentIntoSentences(snippets: Snippet[]): Sentence[] {
+  const parts: { text: string; start: number; end: number }[] = [];
+  for (const s of snippets) parts.push(...splitSnippetAtPunctuation(s));
+
+  const sentences: Sentence[] = [];
+  let buf: { text: string; start: number; end: number }[] = [];
+
+  for (const part of parts) {
+    buf.push(part);
+    if (SENTENCE_END_RE.test(part.text[part.text.length - 1])) {
+      sentences.push({
+        text: mergeTexts(buf.map(b => b.text)),
+        start: ts(buf[0].start),
+        end: ts(buf[buf.length - 1].end),
+      });
+      buf = [];
+    }
+  }
+
+  if (buf.length) {
+    sentences.push({
+      text: mergeTexts(buf.map(b => b.text)),
+      start: ts(buf[0].start),
+      end: ts(buf[buf.length - 1].end),
+    });
+  }
+
+  return sentences;
+}
+
+function parseTs(t: string): number {
+  const [h, m, s] = t.split(":").map(Number);
+  return h * 3600 + m * 60 + s;
+}
+
+function groupSentenceParas(sentences: Sentence[]): Paragraph[] {
+  if (!sentences.length) return [];
+  const paras: Paragraph[] = [];
+  let buf: Sentence[] = [];
+  for (let i = 0; i < sentences.length; i++) {
+    buf.push(sentences[i]);
+    const last = i === sentences.length - 1;
+    const gap = !last && parseTs(sentences[i + 1].start) - parseTs(sentences[i].end) > 2;
+    if (last || gap || buf.length >= 5) {
+      paras.push({
+        text: mergeTexts(buf.map(s => s.text)),
+        start: parseTs(buf[0].start),
+        end: parseTs(buf[buf.length - 1].end),
+      });
+      buf = [];
+    }
+  }
+  return paras;
+}
+
 // --- Format functions ---
 
 function formatSrt(snippets: Snippet[]): string {
@@ -374,7 +505,7 @@ function yamlEscape(s: string): string {
   return s;
 }
 
-function formatMarkdown(snippets: Snippet[], meta: VideoMeta, opts: { timestamps: boolean; chapters: boolean; speakers: boolean }, rawSrt?: string): string {
+function formatMarkdown(sentences: Sentence[], meta: VideoMeta, opts: { timestamps: boolean; chapters: boolean; speakers: boolean }, snippets?: Snippet[]): string {
   let md = "---\n";
   md += `title: ${yamlEscape(meta.title)}\n`;
   md += `channel: ${yamlEscape(meta.channel)}\n`;
@@ -392,7 +523,7 @@ function formatMarkdown(snippets: Snippet[], meta: VideoMeta, opts: { timestamps
       md += "\n";
     }
     md += "# Transcript\n\n";
-    md += rawSrt || formatSrt(snippets);
+    md += snippets ? formatSrt(snippets) : "";
     return md;
   }
 
@@ -404,8 +535,8 @@ function formatMarkdown(snippets: Snippet[], meta: VideoMeta, opts: { timestamps
     md += "\n\n";
     for (let i = 0; i < chapters.length; i++) {
       const nextStart = i < chapters.length - 1 ? chapters[i + 1].start : Infinity;
-      const segs = snippets.filter(s => s.start >= chapters[i].start && s.start < nextStart);
-      const paras = groupIntoParagraphs(segs);
+      const chSentences = sentences.filter(s => parseTs(s.start) >= chapters[i].start && parseTs(s.start) < nextStart);
+      const paras = groupSentenceParas(chSentences);
       md += opts.timestamps
         ? `## [${ts(chapters[i].start)}] ${chapters[i].title}\n\n`
         : `## ${chapters[i].title}\n\n`;
@@ -413,7 +544,7 @@ function formatMarkdown(snippets: Snippet[], meta: VideoMeta, opts: { timestamps
       md += "\n";
     }
   } else {
-    const paras = groupIntoParagraphs(snippets);
+    const paras = groupSentenceParas(sentences);
     for (const p of paras) md += opts.timestamps ? `${p.text} [${ts(p.start)} → ${ts(p.end)}]\n\n` : `${p.text}\n\n`;
   }
 
@@ -471,7 +602,7 @@ function registerVideoDir(videoId: string, channelSlug: string, titleSlug: strin
 }
 
 function hasCachedData(videoDir: string): boolean {
-  return existsSync(join(videoDir, "meta.json")) && existsSync(join(videoDir, "transcript-raw.srt"));
+  return existsSync(join(videoDir, "meta.json")) && existsSync(join(videoDir, "transcript-raw.json"));
 }
 
 function loadMeta(videoDir: string): VideoMeta {
@@ -479,16 +610,16 @@ function loadMeta(videoDir: string): VideoMeta {
 }
 
 function loadSnippets(videoDir: string): Snippet[] {
-  return parseSrt(readFileSync(join(videoDir, "transcript-raw.srt"), "utf-8"));
+  return JSON.parse(readFileSync(join(videoDir, "transcript-raw.json"), "utf-8"));
 }
 
-function loadRawSrt(videoDir: string): string {
-  return readFileSync(join(videoDir, "transcript-raw.srt"), "utf-8");
+function loadSentences(videoDir: string): Sentence[] {
+  return JSON.parse(readFileSync(join(videoDir, "transcript-sentences.json"), "utf-8"));
 }
 
 // --- Main processing ---
 
-async function fetchAndCache(videoId: string, baseDir: string, opts: Options): Promise<{ meta: VideoMeta; snippets: Snippet[]; videoDir: string }> {
+async function fetchAndCache(videoId: string, baseDir: string, opts: Options): Promise<{ meta: VideoMeta; snippets: Snippet[]; sentences: Sentence[]; videoDir: string }> {
   const html = await fetchHtml(videoId);
   const apiKey = extractApiKey(html, videoId);
   const data = await fetchInnertubeData(videoId, apiKey);
@@ -501,23 +632,22 @@ async function fetchAndCache(videoId: string, baseDir: string, opts: Options): P
   const langInfo = { code: result.languageCode, name: result.language, isGenerated: info.isGenerated };
   const meta = buildVideoMeta(data, videoId, langInfo, chapters);
 
-  // Compute directory: {baseDir}/{channel-slug}/{title-slug}/
   const videoDir = registerVideoDir(videoId, slugify(meta.channel), slugify(meta.title), baseDir);
-
-  // Save raw data as SRT (pre-computed timestamps, token-efficient for LLM)
   ensureDir(join(videoDir, "meta.json"));
-  writeFileSync(join(videoDir, "transcript-raw.srt"), formatSrt(result.snippets));
 
-  // Download cover image
+  writeFileSync(join(videoDir, "transcript-raw.json"), JSON.stringify(result.snippets, null, 2));
+
+  const sentences = segmentIntoSentences(result.snippets);
+  writeFileSync(join(videoDir, "transcript-sentences.json"), JSON.stringify(sentences, null, 2));
+
   const imgPath = join(videoDir, "imgs", "cover.jpg");
   ensureDir(imgPath);
-  const downloaded = await downloadCoverImage(meta.thumbnailUrl, imgPath);
+  const downloaded = await downloadCoverImage(getThumbnailUrls(videoId, data), imgPath);
   meta.coverImage = downloaded ? "imgs/cover.jpg" : "";
 
-  // Save meta (after cover image result is known)
   writeFileSync(join(videoDir, "meta.json"), JSON.stringify(meta, null, 2));
 
-  return { meta, snippets: result.snippets, videoDir };
+  return { meta, snippets: result.snippets, sentences, videoDir };
 }
 
 async function processVideo(videoId: string, opts: Options): Promise<VideoResult> {
@@ -534,17 +664,16 @@ async function processVideo(videoId: string, opts: Options): Promise<VideoResult
     return { videoId, title, content: formatListOutput(videoId, title, transcripts) };
   }
 
-  // Fetch phase: use cache via index lookup
   let videoDir = lookupVideoDir(videoId, baseDir);
   let meta: VideoMeta;
   let snippets: Snippet[];
-  let rawSrt: string | undefined;
+  let sentences: Sentence[];
   let needsFetch = opts.refresh || !videoDir || !hasCachedData(videoDir);
 
   if (!needsFetch && videoDir) {
     meta = loadMeta(videoDir);
     snippets = loadSnippets(videoDir);
-    rawSrt = loadRawSrt(videoDir);
+    sentences = loadSentences(videoDir);
     const wantLangs = opts.translate ? [opts.translate] : opts.languages;
     if (!wantLangs.includes(meta.language.code)) needsFetch = true;
   }
@@ -553,26 +682,26 @@ async function processVideo(videoId: string, opts: Options): Promise<VideoResult
     const result = await fetchAndCache(videoId, baseDir, opts);
     meta = result.meta;
     snippets = result.snippets;
+    sentences = result.sentences;
     videoDir = result.videoDir;
-    rawSrt = loadRawSrt(videoDir);
   } else {
     meta = meta!;
     snippets = snippets!;
+    sentences = sentences!;
   }
 
-  // Format phase
   let content: string;
   let ext: string;
 
   if (opts.format === "srt") {
-    content = rawSrt || formatSrt(snippets);
+    content = formatSrt(snippets);
     ext = "srt";
   } else {
-    content = formatMarkdown(snippets, meta, {
+    content = formatMarkdown(sentences, meta, {
       timestamps: opts.timestamps,
       chapters: opts.chapters,
       speakers: opts.speakers,
-    }, rawSrt);
+    }, snippets);
     ext = "md";
   }
 

@@ -44,7 +44,7 @@ Use the same language as the transcription for the title and ToC.
 
 **Chapters:**
 ```
-## [HH:MM:SS] Chapter Title
+## Chapter Title [HH:MM:SS]
 ```
 Two blank lines between chapters.
 
@@ -87,14 +87,14 @@ language: en
 * [00:00:12] Overview of the New Research
 
 
-## [00:00:00] Introduction and Welcome
+## Introduction and Welcome [00:00:00]
 
 **Host:** Welcome back to the show. Today, we have a, uh, very special guest, Jane Doe. [00:00:00 → 00:00:03]
 
 **Jane Doe:** Thank you for having me. I'm excited to be here and discuss the findings. [00:00:03 → 00:00:07]
 
 
-## [00:00:12] Overview of the New Research
+## Overview of the New Research [00:00:12]
 
 **Host:** So, Jane, before we get into the nitty-gritty, could you, you know, give us a brief overview for our audience? [00:00:12 → 00:00:16]
 

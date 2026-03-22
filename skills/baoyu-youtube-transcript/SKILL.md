@@ -98,11 +98,12 @@ youtube-transcript/
 ├── .index.json                          # Video ID → directory path mapping (for cache lookup)
 └── {channel-slug}/{title-full-slug}/
     ├── meta.json                        # Video metadata (title, channel, description, duration, chapters, etc.)
-    ├── transcript-raw.srt               # Raw transcript in SRT format (cached, token-efficient for LLM)
+    ├── transcript-raw.json              # Raw transcript snippets from YouTube API (cached)
+    ├── transcript-sentences.json        # Sentence-segmented transcript (split by punctuation, merged across snippets)
     ├── imgs/
     │   └── cover.jpg                    # Video thumbnail
-    ├── transcript.md                    # Markdown transcript
-    └── transcript.srt                   # SRT subtitle (if --format srt)
+    ├── transcript.md                    # Markdown transcript (generated from sentences)
+    └── transcript.srt                   # SRT subtitle (generated from raw snippets, if --format srt)
 ```
 
 - `{channel-slug}`: Channel name in kebab-case
@@ -114,10 +115,13 @@ The `--list` mode outputs to stdout only (no file saved).
 
 On first fetch, the script saves:
 - `meta.json` — video metadata, chapters, cover image path, language info
-- `transcript-raw.srt` — raw transcript in SRT format (pre-computed timestamps, token-efficient for LLM processing)
+- `transcript-raw.json` — raw transcript snippets from YouTube API (`{ text, start, duration }[]`)
+- `transcript-sentences.json` — sentence-segmented transcript (`{ text, start: "HH:mm:ss", end: "HH:mm:ss" }[]`), split by sentence-ending punctuation (`.?!…。？！` etc.), timestamps proportionally allocated by character length, CJK-aware text merging
 - `imgs/cover.jpg` — video thumbnail
 
 Subsequent runs for the same video use cached data (no network calls). Use `--refresh` to force re-fetch. If a different language is requested, the cache is automatically refreshed.
+
+SRT output (`--format srt`) is generated from `transcript-raw.json`. Text/markdown output uses `transcript-sentences.json` for natural sentence boundaries.
 
 ## Workflow
 
@@ -148,7 +152,7 @@ Speaker identification requires AI processing. The script outputs a raw `.md` fi
 - Chapter list from description (if available)
 - Raw transcript in SRT format (pre-computed start/end timestamps, token-efficient)
 
-After the script saves the raw file:
+After the script saves the raw file, spawn a sub-agent (use a cheaper model like Sonnet for cost efficiency) to process speaker identification:
 
 1. Read the saved `.md` file
 2. Read the prompt template at `{baseDir}/prompts/speaker-transcript.md`

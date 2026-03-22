@@ -76,7 +76,7 @@ Simply tell Claude Code:
 |--------|-------------|--------|
 | **content-skills** | Content generation and publishing | [xhs-images](#baoyu-xhs-images), [infographic](#baoyu-infographic), [cover-image](#baoyu-cover-image), [slide-deck](#baoyu-slide-deck), [comic](#baoyu-comic), [article-illustrator](#baoyu-article-illustrator), [post-to-x](#baoyu-post-to-x), [post-to-wechat](#baoyu-post-to-wechat), [post-to-weibo](#baoyu-post-to-weibo) |
 | **ai-generation-skills** | AI-powered generation backends | [image-gen](#baoyu-image-gen), [danger-gemini-web](#baoyu-danger-gemini-web) |
-| **utility-skills** | Utility tools for content processing | [url-to-markdown](#baoyu-url-to-markdown), [danger-x-to-markdown](#baoyu-danger-x-to-markdown), [compress-image](#baoyu-compress-image), [format-markdown](#baoyu-format-markdown), [markdown-to-html](#baoyu-markdown-to-html), [translate](#baoyu-translate) |
+| **utility-skills** | Utility tools for content processing | [youtube-transcript](#baoyu-youtube-transcript), [url-to-markdown](#baoyu-url-to-markdown), [danger-x-to-markdown](#baoyu-danger-x-to-markdown), [compress-image](#baoyu-compress-image), [format-markdown](#baoyu-format-markdown), [markdown-to-html](#baoyu-markdown-to-html), [translate](#baoyu-translate) |
 
 ## Update Skills
 
@@ -765,6 +765,40 @@ Interacts with Gemini Web to generate text and images.
 ### Utility Skills
 
 Utility tools for content processing.
+
+#### baoyu-youtube-transcript
+
+Download YouTube video transcripts/subtitles and cover images. Supports multiple languages, translation, chapters, and speaker identification. Caches raw data for fast re-formatting.
+
+```bash
+# Default: markdown with timestamps
+/baoyu-youtube-transcript https://www.youtube.com/watch?v=VIDEO_ID
+
+# Specify languages (priority order)
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --languages zh,en,ja
+
+# With chapters and speaker identification
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --chapters --speakers
+
+# SRT subtitle format
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --format srt
+
+# List available transcripts
+/baoyu-youtube-transcript https://youtu.be/VIDEO_ID --list
+```
+
+**Options**:
+| Option | Description | Default |
+|--------|-------------|---------|
+| `<url-or-id>` | YouTube URL or video ID | Required |
+| `--languages <codes>` | Language codes, comma-separated | `en` |
+| `--format <fmt>` | Output format: `text`, `srt` | `text` |
+| `--translate <code>` | Translate to specified language | |
+| `--chapters` | Chapter segmentation from video description | |
+| `--speakers` | Speaker identification (requires AI post-processing) | |
+| `--no-timestamps` | Disable timestamps | |
+| `--list` | List available transcripts | |
+| `--refresh` | Force re-fetch, ignore cache | |
 
 #### baoyu-url-to-markdown
 
